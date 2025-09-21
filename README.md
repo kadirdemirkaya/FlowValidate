@@ -5,6 +5,11 @@
 | [![NuGet](https://img.shields.io/nuget/v/FlowValidate)](https://www.nuget.org/packages/FlowValidate) | [![Downloads](https://img.shields.io/nuget/dt/FlowValidate)](https://www.nuget.org/packages/FlowValidate) | [![License](https://img.shields.io/nuget/l/EventFlux)](https://github.com/kadirdemirkaya/EventFlux/blob/main/LICENSE.txt) |
 
 
+#### Repository
+
+You can find the source code and contribute on [GitHub](https://github.com/kadirdemirkaya/FlowValidate)
+
+
 #### FlowValidate
 
 **FlowValidate** is a lightweight, fluent validation library for .NET.  
@@ -134,6 +139,6 @@ var user = new User
 var validator = new UserValidator();
 var result = validator.Validate(user);
 ```
-For more examples and unit tests, check the [FlowValidate.Test](https://github.com/kadirdemirkaya) project in the repository.
 
+For more examples and unit tests, check the [FlowValidate.Test](https://github.com/kadirdemirkaya/FlowValidate/tree/main/test) project in the repository.
 
