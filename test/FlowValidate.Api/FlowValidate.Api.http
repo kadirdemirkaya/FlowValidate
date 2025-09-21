@@ -1,0 +1,33 @@
+@FlowValidate.Api_HostAddress = http://localhost:5185
+
+GET {{FlowValidate.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+POST {{FlowValidate.Api_HostAddress}}/api/user/register
+Content-Type: application/json
+Accept: application/json
+
+{
+  "name": "Kadir",
+  "age": 28,
+  "pastTime": "2023-05-10T14:30:00Z",
+  "emails": ["kadir@example.com", "test@example.com"],
+  "email": "kadir@example.com",
+  "userCustomer": {
+    "id": 1,
+    "customerName": "Test Customer"
+  },
+  "userBaskets": [
+    {
+      "id": 10,
+      "productName": "Laptop",
+      "quantity": 1
+    },
+    {
+      "id": 11,
+      "productName": "Mouse",
+      "quantity": 2
+    }
+  ]
+}
