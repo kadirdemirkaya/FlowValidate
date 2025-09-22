@@ -9,7 +9,9 @@ namespace FlowValidate.Builders
         private StringBuilder _shouldBuilder;
         private StringBuilder _shouldListBuilder;
         private readonly Func<T, TProperty> _property;
-        private readonly List<(Func<TProperty, bool> rule, string errorMessage, bool isFromShould)> _rulesWithMessages = new();
+        //private readonly List<(Func<TProperty, bool> rule, string errorMessage, bool isFromShould)> _rulesWithMessages = new();
+        private readonly List<(Delegate rule, string errorMessage, bool isFromShould)> _rulesWithMessages = new();
+
         private readonly List<(Func<T, bool> rule, string errorMessage)> _dependentRulesWithMessages = new();
 
         public ValidationRuleBuilder(Func<T, TProperty> property)
@@ -54,7 +56,16 @@ namespace FlowValidate.Builders
 
             foreach (var (rule, errorMessage, isFromShould) in _rulesWithMessages)
             {
-                if (!rule(value))
+                if (result.SkipRemainingRules) break;
+
+                bool passed = rule switch
+                {
+                    Func<TProperty, bool> r1 => r1(value),
+                    Func<T, TProperty, ValidationResult, bool> r2 => r2(instance, value, result),
+                    _ => true
+                };
+
+                if (!passed)
                 {
                     if (isFromShould)
                     {
@@ -68,10 +79,9 @@ namespace FlowValidate.Builders
                         result.AddError(errorMessage ?? "Validation failed for property.");
                         result.SetIsValid(false);
                     }
-
-                    isValid = false;
                 }
             }
+
 
             if (isValid)
                 foreach (var (rule, errorMessage) in _dependentRulesWithMessages)
@@ -88,6 +98,28 @@ namespace FlowValidate.Builders
 
             return Task.FromResult(result);
         }
+
+        public ValidationRuleBuilder<T, TProperty> RequiredIf(Func<TProperty, bool> condition)
+        {
+            _rulesWithMessages.Add(((Func<T, TProperty, ValidationResult, bool>)((instance, value, result) =>
+            {
+                if (!condition(value))
+                {
+                    result.SetSkipRemainingRules(true);
+                    return false; // geçer say
+                }
+
+                if (value is string str)
+                    return !string.IsNullOrWhiteSpace(str);
+
+                return value != null;
+
+            }), "Property is required.", false));
+
+            return this;
+        }
+
+
 
         public ValidationRuleBuilder<T, TProperty> Must(Func<TProperty, bool> rule)
         {
@@ -267,19 +299,20 @@ namespace FlowValidate.Builders
             Action<string> addError = error => AddShouldError(error);
             string errors = string.Empty;
 
-            _rulesWithMessages.Add((value =>
-            {
-                try
+            _rulesWithMessages.Add((
+                (Func<TProperty, bool>)(value =>
                 {
-                    action(value, addError);
-                    errors = _shouldBuilder.ToString();
-                    return string.IsNullOrEmpty(_shouldBuilder.ToString());
-                }
-                catch
-                {
-                    return false;
-                }
-            }, "Should custom error", true));
+                    try
+                    {
+                        action(value, addError);
+                        errors = _shouldBuilder.ToString();
+                        return string.IsNullOrEmpty(_shouldBuilder.ToString());
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                }), "Should custom error", true));
 
             return this;
         }
@@ -295,18 +328,19 @@ namespace FlowValidate.Builders
 
         public ValidationRuleBuilder<T, TProperty> Should(Action<TProperty> action, string errorMessage = null)
         {
-            _rulesWithMessages.Add((value =>
-            {
-                try
+            _rulesWithMessages.Add((
+                (Func<TProperty, bool>)(value =>
                 {
-                    action(value);
-                    return true;
-                }
-                catch
-                {
-                    return false;
-                }
-            }, errorMessage ?? "Custom validation failed !.", true));
+                    try
+                    {
+                        action(value);
+                        return true;
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                }), errorMessage ?? "Custom validation failed !.", true));
 
             return this;
         }
@@ -316,7 +350,8 @@ namespace FlowValidate.Builders
             if (errorMessage.Length > 0)
                 ErrorMessageToList(errorMessage);
 
-            _rulesWithMessages.Add((value =>
+            _rulesWithMessages.Add((
+                (Func<TProperty, bool>)(value =>
             {
                 try
                 {
@@ -327,7 +362,7 @@ namespace FlowValidate.Builders
                 {
                     return false;
                 }
-            }, _shouldListBuilder.ToString() ?? "Custom validation failed !", true));
+            }), _shouldListBuilder.ToString() ?? "Custom validation failed !", true));
 
             return this;
         }
