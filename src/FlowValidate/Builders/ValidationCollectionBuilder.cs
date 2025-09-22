@@ -18,7 +18,7 @@ namespace FlowValidate.Builders
             _itemSelector = itemSelector;
         }
 
-        public ValidationResult Validate(T instance)
+        public async Task<ValidationResult> ValidateAsync(T instance)
         {
             var result = new ValidationResult();
             var collection = _collectionFunc(instance);
@@ -27,7 +27,7 @@ namespace FlowValidate.Builders
             foreach (var item in collection)
             {
                 var element = _itemSelector(item);
-                var itemResult = _elementValidator.Validate(element);
+                var itemResult = await _elementValidator.ValidateAsync(element);
 
                 if (!itemResult.IsValid)
                 {

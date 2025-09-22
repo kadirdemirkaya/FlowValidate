@@ -46,7 +46,7 @@ namespace FlowValidate.Builders
             return this;
         }
 
-        public ValidationResult Validate(T instance)
+        public Task<ValidationResult> ValidateAsync(T instance)
         {
             var result = new ValidationResult();
             var value = _property(instance);
@@ -86,7 +86,7 @@ namespace FlowValidate.Builders
             _shouldBuilder.Clear();
             _shouldListBuilder.Clear();
 
-            return result;
+            return Task.FromResult(result);
         }
 
         public ValidationRuleBuilder<T, TProperty> Must(Func<TProperty, bool> rule)

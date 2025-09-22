@@ -8,7 +8,7 @@ namespace FlowValidate.Abstractions
     {
         ValidationRuleBuilder<T, TProperty> RuleFor<TProperty>(Func<T, TProperty> property);
 
-        ValidationResult Validate(T instance);
+        Task<ValidationResult> ValidateAsync(T instance);
 
         ValidationNestedBuilder<T, TProperty> ValidateNested<TProperty>(Func<T, TProperty> propertyFunc, BaseValidator<TProperty> validator);
 

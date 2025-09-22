@@ -13,12 +13,12 @@ namespace FlowValidate.Builders
             _validator = validator;
         }
 
-        public ValidationResult Validate(T instance)
+        public async Task<ValidationResult> ValidateAsync(T instance)
         {
             var result = new ValidationResult();
             var value = _property(instance);
 
-            var baseValidationResult = _validator.Validate(value);
+            var baseValidationResult = await _validator.ValidateAsync(value);
             if (!baseValidationResult.IsValid)
             {
                 result.Errors.AddRange(baseValidationResult.Errors);
