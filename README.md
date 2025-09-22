@@ -21,12 +21,13 @@ It provides an intuitive API for validating models, making it easy to add and en
 - **Property Validation**: Validate standard properties, nested objects, and collections.  
 - **Nested & Collection Support**: Automatically validates complex types and lists.  
 - **Custom Rules**: Use `Should`, `Must`, `IsNotEmpty`, `IsEqual` or define your own logic.  
-- **Reusable Logic**: Define rules once and reuse across models.  
+- **Multi-error per Rule**: Single property rules can produce multiple error messages.  
+- **Reusable & Property-specific Validators**: Create modular validators like `UserNameValidator` and apply them to properties.  
+- **Async / Task-based Validation**: Rules can run asynchronously,
 - **DI Support**: Easy integration with dependency injection.  
 - **Clear Error Messages**: Provides detailed validation feedback.  
 - **Lightweight & Fast**: Optimized for high performance.  
 - **Middleware Ready**: Can validate models automatically on each request.
-
 
 
 #### Installation
