@@ -12,7 +12,7 @@ You can find the source code and contribute on [GitHub](https://github.com/kadir
 
 #### FlowValidate
 
-**FlowValidate** is a lightweight, fluent validation library for .NET.  
+**FlowValidate** is a lightweight, fluent-style validation library for .NET.  
 It provides an intuitive API for validating models, making it easy to add and enforce rules while reducing boilerplate code.
 
 
@@ -141,5 +141,9 @@ var validator = new UserValidator();
 var result = validator.Validate(user);
 ```
 
-For more examples and unit tests, check the [FlowValidate.Test](https://github.com/kadirdemirkaya/FlowValidate/tree/main/test) project in the repository.
+For more examples and unit tests, check the [FlowValidate.Test](https://github.com/kadirdemirkaya/FlowValidate/tree/main/test/FlowValidate.Test) project in the repository.  
+
+- [API Examples](https://github.com/kadirdemirkaya/FlowValidate/tree/main/test/FlowValidate.Api)  
+- [Console Examples](https://github.com/kadirdemirkaya/FlowValidate/tree/main/test/FlowValidate.Console)
+
 
