@@ -28,7 +28,7 @@ namespace FlowValidate.Console.Validators
                         result.Errors.Add("*** Username must start with a letter or number ***.");
                 }
                 result.SetIsValid(result.Errors.Count == 0);
-                return result;
+                return Task.FromResult(result);
             });
 
         }

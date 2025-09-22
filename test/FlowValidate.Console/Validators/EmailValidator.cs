@@ -15,7 +15,7 @@
                     result.Errors.Add("*** Email formatı yanlış ***");
 
                 result.SetIsValid(result.Errors.Count == 0);
-                return result;
+                return Task.FromResult(result);
             });
         }
     }

@@ -14,7 +14,9 @@ namespace FlowValidate.Test.Validators
 
             // Nested validator
             ValidateNested(x => x.UserDetails, new UserDetailsValidator());
-            
+
+            // Specific validator
+            //ValidateRegistryRules(user => user.Name, new UserNameValidator());
 
             // Collection validator
             ValidateCollection(

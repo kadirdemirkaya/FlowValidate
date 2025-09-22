@@ -1,5 +1,6 @@
 ﻿using FlowValidate.Test.Models;
 using FlowValidate.Test.Validators;
+using System.Runtime.CompilerServices;
 
 namespace FlowValidate.Test
 {
@@ -11,7 +12,7 @@ namespace FlowValidate.Test
             private readonly UserValidator _validator = new();
 
             [Fact]
-            public void Validate_Should_Pass_When_User_IsValid()
+            public async Task Validate_Should_Pass_When_User_IsValid()
             {
                 // Arrange
                 var user = new User
@@ -29,7 +30,7 @@ namespace FlowValidate.Test
                 };
 
                 // Act
-                var result = _validator.Validate(user);
+                var result = await _validator.ValidateAsync(user);
 
                 // Assert
                 Assert.True(result.IsValid);
@@ -37,7 +38,7 @@ namespace FlowValidate.Test
             }
 
             [Fact]
-            public void Validate_Should_Fail_When_Name_IsEmpty()
+            public async Task Validate_Should_Fail_When_Name_IsEmpty()
             {
                 // Arrange
                 var user = new User
@@ -50,7 +51,7 @@ namespace FlowValidate.Test
                 };
 
                 // Act
-                var result = _validator.Validate(user);
+                var result = await _validator.ValidateAsync(user);
 
                 // Assert
                 Assert.False(result.IsValid);
@@ -58,7 +59,7 @@ namespace FlowValidate.Test
             }
 
             [Fact]
-            public void Validate_Should_Fail_When_Age_IsOutOfRange()
+            public async Task Validate_Should_Fail_When_Age_IsOutOfRange()
             {
                 // Arrange
                 var user = new User
@@ -70,7 +71,7 @@ namespace FlowValidate.Test
                 };
 
                 // Act
-                var result = _validator.Validate(user);
+                var result = await _validator.ValidateAsync(user);
 
                 // Assert
                 Assert.False(result.IsValid);
@@ -78,7 +79,7 @@ namespace FlowValidate.Test
             }
 
             [Fact]
-            public void Validate_Should_Fail_When_Email_IsInvalid()
+            public async Task Validate_Should_Fail_When_Email_IsInvalid()
             {
                 // Arrange
                 var user = new User
@@ -90,7 +91,7 @@ namespace FlowValidate.Test
                 };
 
                 // Act
-                var result = _validator.Validate(user);
+                var result = await _validator.ValidateAsync(user);
 
                 // Assert
                 Assert.False(result.IsValid);
@@ -98,7 +99,7 @@ namespace FlowValidate.Test
             }
 
             [Fact]
-            public void Validate_Should_Fail_When_Tags_AreNotUnique()
+            public async Task Validate_Should_Fail_When_Tags_AreNotUnique()
             {
                 // Arrange
                 var user = new User
@@ -111,7 +112,7 @@ namespace FlowValidate.Test
                 };
 
                 // Act
-                var result = _validator.Validate(user);
+                var result = await _validator.ValidateAsync(user);
 
                 // Assert
                 Assert.False(result.IsValid);
@@ -119,7 +120,7 @@ namespace FlowValidate.Test
             }
 
             [Fact]
-            public void Validate_Should_Fail_When_UserDetails_AreInvalid()
+            public async Task Validate_Should_Fail_When_UserDetails_AreInvalid()
             {
                 // Arrange
                 var user = new User
@@ -136,7 +137,7 @@ namespace FlowValidate.Test
                 };
 
                 // Act
-                var result = _validator.Validate(user);
+                var result = await _validator.ValidateAsync(user);
 
                 // Assert
                 Assert.False(result.IsValid);
@@ -144,7 +145,7 @@ namespace FlowValidate.Test
             }
 
             [Fact]
-            public void Validate_Should_Pass_When_Baskets_AreValid()
+            public async Task Validate_Should_Pass_When_Baskets_AreValid()
             {
                 // Arrange
                 var user = new User
@@ -161,7 +162,7 @@ namespace FlowValidate.Test
                 };
 
                 // Act
-                var result = _validator.Validate(user);
+                var result = await _validator.ValidateAsync(user);
 
                 // Assert
                 Assert.True(result.IsValid);
@@ -169,7 +170,7 @@ namespace FlowValidate.Test
             }
 
             [Fact]
-            public void Validate_Should_Fail_When_Basket_Name_IsEmpty()
+            public async Task Validate_Should_Fail_When_Basket_Name_IsEmpty()
             {
                 // Arrange
                 var user = new User
@@ -185,7 +186,7 @@ namespace FlowValidate.Test
                 };
 
                 // Act
-                var result = _validator.Validate(user);
+                var result = await _validator.ValidateAsync(user);
 
                 // Assert
                 Assert.False(result.IsValid);
@@ -193,7 +194,7 @@ namespace FlowValidate.Test
             }
 
             [Fact]
-            public void Validate_Should_Fail_When_Basket_Count_IsOutOfRange()
+            public async Task Validate_Should_Fail_When_Basket_Count_IsOutOfRange()
             {
                 // Arrange
                 var user = new User
@@ -210,7 +211,7 @@ namespace FlowValidate.Test
                 };
 
                 // Act
-                var result = _validator.Validate(user);
+                var result = await _validator.ValidateAsync(user);
 
                 // Assert
                 Assert.False(result.IsValid);
@@ -218,7 +219,7 @@ namespace FlowValidate.Test
             }
 
             [Fact]
-            public void Validate_Should_Handle_Nullable_Nickname()
+            public async Task Validate_Should_Handle_Nullable_Nickname()
             {
                 // Arrange
                 var user1 = new User { Name = "Kadir", Age = 25, Email = "test@test.com", Nickname = null };
@@ -228,9 +229,9 @@ namespace FlowValidate.Test
                 var validator = new UserValidator();
 
                 // Act
-                var result1 = validator.Validate(user1);
-                var result2 = validator.Validate(user2);
-                var result3 = validator.Validate(user3);
+                var result1 = await validator.ValidateAsync(user1);
+                var result2 = await validator.ValidateAsync(user2);
+                var result3 = await validator.ValidateAsync(user3);
 
                 // Assert
                 Assert.False(result1.IsValid);

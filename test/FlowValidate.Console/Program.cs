@@ -4,7 +4,7 @@ using FlowValidate.Console.Validators;
 
 var user = new User
 {
-    Name = "XoarkanX",
+    Name = "XoarkanX S",
     Age = 18,
     PastTime = DateTime.UtcNow.AddDays(-1),
     UserCustomer = new()
@@ -21,7 +21,7 @@ var user = new User
 };
 
 var validator = new UserValidator();
-var result = validator.Validate(user);
+var result = await validator.ValidateAsync(user);
 
 if (!result.IsValid)
 {

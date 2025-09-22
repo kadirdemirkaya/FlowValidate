@@ -20,6 +20,8 @@ namespace FlowValidate.Console.Validators
                  }, "Custom validation FAILED !").WithMessage("Additional error message if needed.")
                 .Should(name => char.IsUpper(name[0]), "Name must start with an uppercase letter");
 
+            ValidateRegistryRules(user => user.Name, new UserNameValidator());
+
             ValidateNested(user => user.UserCustomer, new UserCustomersValidator());
 
             RuleFor(user => user.Age)
