@@ -8,14 +8,14 @@ namespace FlowValidate.Console.Validators
         {
             RuleFor(user => user.Name)
                  .Must(name => !string.IsNullOrEmpty(name)).WithMessage("Name property is null !")
-                 .Contains("e").WithMessage("Name property value have to contains 'e' .")
+                 .Contains("w").WithMessage("Name property value have to contains 'e' .")
                  .Length(3, 10).WithMessage("Length doesn't follow the rules")
-                 .RequiredIf(name => name.Length > 300)
+                 //.RequiredIf(name => name.Length > 300)
                  .IsEqual("XoarkanX").WithMessage("Name value is not equal qith expected value !")
                  .IsEmail().WithMessage("Name is not email")
                  .Should(name =>
                  {
-                     if (!name.Contains("e"))
+                     if (!name.Contains("X"))
                          throw new Exception("Name cannot start with 'X'.");
 
                  }, "Custom validation FAILED !").WithMessage("Additional error message if needed.")
@@ -54,7 +54,7 @@ namespace FlowValidate.Console.Validators
                    {
                        addError("Name cannot be null or empty.");
                    }
-                   if (name.Length < 3)
+                   if (name.Length > 3)
                    {
                        addError("Name must be at least 3 characters long.");
                    }

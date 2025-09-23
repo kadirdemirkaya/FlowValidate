@@ -34,7 +34,7 @@ namespace FlowValidate.Test
 
                 // Assert
                 Assert.True(result.IsValid);
-                Assert.Empty(result.Errors);
+                Assert.Empty(result.Failures);
             }
 
             [Fact]
@@ -55,7 +55,8 @@ namespace FlowValidate.Test
 
                 // Assert
                 Assert.False(result.IsValid);
-                Assert.Contains(result.Errors, e => e.Contains("Name"));
+                Assert.Contains(result.Failures, e => e.ErrorMessage.Contains("Name"));
+
             }
 
             [Fact]
@@ -72,10 +73,15 @@ namespace FlowValidate.Test
 
                 // Act
                 var result = await _validator.ValidateAsync(user);
+                
+                var error = result.Failures.ToList();
 
                 // Assert
                 Assert.False(result.IsValid);
-                Assert.Contains(result.Errors, e => e.Contains("Age") || e.Contains("Validation failed "));
+                Assert.Contains(result.Failures, e =>
+                    (e.PropertyName != null && e.PropertyName.Contains("Age")) ||
+                    (e.ErrorMessage != null && e.ErrorMessage.Contains("Validation failed"))
+                );
             }
 
             [Fact]
@@ -95,7 +101,11 @@ namespace FlowValidate.Test
 
                 // Assert
                 Assert.False(result.IsValid);
-                Assert.Contains(result.Errors, e => e.Contains("Email"));
+                Assert.Contains(result.Failures, e =>
+                    (e.PropertyName != null && e.PropertyName.Contains("Email")) ||
+                    (e.ErrorMessage != null && e.ErrorMessage.Contains("Email"))
+                );
+
             }
 
             [Fact]
@@ -116,7 +126,12 @@ namespace FlowValidate.Test
 
                 // Assert
                 Assert.False(result.IsValid);
-                Assert.Contains(result.Errors, e => e.Contains("Tags") ||e.Contains("Validation failed"));
+                Assert.Contains(result.Failures, e =>
+                    (e.PropertyName != null && e.PropertyName.Contains("Tags")) ||
+                    (e.ErrorMessage != null && e.ErrorMessage.Contains("Validation failed"))
+                );
+
+
             }
 
             [Fact]
@@ -141,7 +156,10 @@ namespace FlowValidate.Test
 
                 // Assert
                 Assert.False(result.IsValid);
-                Assert.Contains(result.Errors, e => e.Contains("UserDetails address is required."));
+                Assert.Contains(result.Failures, e =>
+                    e.ErrorMessage != null && e.ErrorMessage.Contains("UserDetails address is required.")
+                );
+
             }
 
             [Fact]
@@ -166,7 +184,7 @@ namespace FlowValidate.Test
 
                 // Assert
                 Assert.True(result.IsValid);
-                Assert.Empty(result.Errors);
+                Assert.Empty(result.Failures);
             }
 
             [Fact]
@@ -190,7 +208,7 @@ namespace FlowValidate.Test
 
                 // Assert
                 Assert.False(result.IsValid);
-                Assert.Contains(result.Errors, e => e.Contains("UserBaskets name is required."));
+                Assert.Contains(result.Failures, e => e.ErrorMessage.Contains("UserBaskets name is required."));
             }
 
             [Fact]
@@ -205,8 +223,8 @@ namespace FlowValidate.Test
                     PastTime = DateTime.UtcNow.AddDays(-1),
                     UserBaskets = new List<UserBasket>
                     {
-                        new UserBasket { Name = "Sepet-1", Count = 0 }, 
-                        new UserBasket { Name = "Sepet-2", Count = 150 } 
+                        new UserBasket { Name = "Sepet-1", Count = 0 },
+                        new UserBasket { Name = "Sepet-2", Count = 150 }
                     }
                 };
 
@@ -215,7 +233,7 @@ namespace FlowValidate.Test
 
                 // Assert
                 Assert.False(result.IsValid);
-                Assert.Contains(result.Errors, e => e.Contains("Validation failed"));
+                Assert.Contains(result.Failures, e => e.ErrorMessage.Contains("Validation failed"));
             }
 
             [Fact]
@@ -236,9 +254,9 @@ namespace FlowValidate.Test
                 // Assert
                 Assert.False(result1.IsValid);
                 Assert.False(result2.IsValid);
-                Assert.Contains(result2.Errors, e => e.Contains("Nickname must be at least 3 characters long"));
+                Assert.Contains(result2.Failures, e => e.ErrorMessage.Contains("Nickname must be at least 3 characters long"));
                 Assert.False(result3.IsValid);
-                Assert.Contains(result3.Errors, e => e.Contains("Nickname cannot contain spaces"));
+                Assert.Contains(result3.Failures, e => e.ErrorMessage.Contains("Nickname cannot contain spaces"));
             }
 
         }

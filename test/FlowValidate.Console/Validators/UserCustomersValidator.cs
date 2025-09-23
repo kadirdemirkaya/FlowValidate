@@ -7,7 +7,7 @@ namespace FlowValidate.Console.Validators
         public UserCustomersValidator()
         {
             RuleFor(product => product.Email)
-                .IsNotEmpty().WithMessage("[UserCustomer] Email is null ")
+                .IsNotEmpty().WithMessage("[UserCustomer] Email is null")
                 .IsEmail().WithMessage("[UserCustomer] not Email format");
 
             RuleFor(product => product.PhoneNumber)

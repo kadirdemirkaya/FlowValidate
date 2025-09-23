@@ -15,19 +15,19 @@ namespace FlowValidate.Console.Validators
                 var result = new ValidationResult();
 
                 if (string.IsNullOrWhiteSpace(name))
-                    result.Errors.Add("*** Username cannot be empty ***.");
+                    result.AddFailure("*** Username cannot be empty ***.");
                 else
                 {
                     if (name.Length < 3 || name.Length > 20)
-                        result.Errors.Add("*** Username must be between 3 and 20 characters. ***.");
+                        result.AddFailure("Username must be between 3 and 20 characters.",errorCode: "UserNameValidator");
                     if (name.Contains(" "))
-                        result.Errors.Add("*** Username cannot contain spaces ***.");
+                        result.AddFailure("Username cannot contain spaces", errorCode: "UserNameValidator");
                     if (!System.Text.RegularExpressions.Regex.IsMatch(name, @"^[a-zA-Z0-9_]+$"))
-                        result.Errors.Add("*** Username can only contain letters, numbers and underscores ***.");
+                        result.AddFailure("Username can only contain letters, numbers and underscores.", errorCode: "UserNameValidator");
                     if (!char.IsLetterOrDigit(name[0]))
-                        result.Errors.Add("*** Username must start with a letter or number ***.");
+                        result.AddFailure("Username must start with a letter or number.", errorCode: "UserNameValidator");
                 }
-                result.SetIsValid(result.Errors.Count == 0);
+                result.SetIsValid(result.Failures.Count == 0);
                 return Task.FromResult(result);
             });
 

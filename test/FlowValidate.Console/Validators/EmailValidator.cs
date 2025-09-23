@@ -9,12 +9,13 @@
                 var result = new ValidationResult();
 
                 if (string.IsNullOrWhiteSpace(email))
-                    result.Errors.Add("*** Email boş olamaz ***.");
+                    result.AddFailure("*** Email boş olamaz ***.");
 
                 else if (!email.Contains("@"))
-                    result.Errors.Add("*** Email formatı yanlış ***");
+                    result.AddFailure("*** Email formatı yanlış ***");
 
-                result.SetIsValid(result.Errors.Count == 0);
+                result.SetIsValid(result.Failures.Count == 0);
+
                 return Task.FromResult(result);
             });
         }
