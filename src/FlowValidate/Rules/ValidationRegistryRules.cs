@@ -18,14 +18,11 @@
             var value = _property(instance);
 
             var baseValidationResult = await _validator.ValidateAsync(value);
-            if (!baseValidationResult.IsValid)
-            {
-                result.Errors.AddRange(baseValidationResult.Errors);
-            }
 
-            result.SetIsValid(result.Errors.Count == 0);
+            if (!baseValidationResult.IsValid) result.Merge(baseValidationResult);
 
             return result;
         }
+
     }
 }

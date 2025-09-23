@@ -2,7 +2,7 @@
 
 | Package | Downloads | License |
 |---------|-----------|---------|
-| [![NuGet](https://img.shields.io/nuget/v/FlowValidate)](https://www.nuget.org/packages/FlowValidate) | [![Downloads](https://img.shields.io/nuget/dt/FlowValidate)](https://www.nuget.org/packages/FlowValidate) | [![License](https://img.shields.io/nuget/l/EventFlux)](https://github.com/kadirdemirkaya/EventFlux/blob/main/LICENSE.txt) |
+| [![NuGet](https://img.shields.io/nuget/v/FlowValidate)](https://www.nuget.org/packages/FlowValidate) | [![Downloads](https://img.shields.io/nuget/dt/FlowValidate)](https://www.nuget.org/packages/FlowValidate) | [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kadirdemirkaya/FlowValidate/blob/main/LICENSE.txt) |
 
 
 #### Repository
@@ -26,6 +26,7 @@ It provides an intuitive API for validating models, making it easy to add and en
 - **Async / Task-based Validation**: Rules can run asynchronously,
 - **DI Support**: Easy integration with dependency injection.  
 - **Clear Error Messages**: Provides detailed validation feedback.  
+- **Detailed Error Messages**: Provides rich validation feedback with property name, attempted value, and optional error code.
 - **Lightweight & Fast**: Optimized for high performance.  
 - **Middleware Ready**: Can validate models automatically on each request.
 

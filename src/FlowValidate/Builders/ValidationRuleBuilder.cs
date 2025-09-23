@@ -1,4 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using FlowValidate.Models;
+using System.ComponentModel.DataAnnotations;
+using System.Linq.Expressions;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -8,53 +10,78 @@ namespace FlowValidate.Builders
     {
         private StringBuilder _shouldBuilder;
         private StringBuilder _shouldListBuilder;
-        private readonly Func<T, TProperty> _property;
-        //private readonly List<(Func<TProperty, bool> rule, string errorMessage, bool isFromShould)> _rulesWithMessages = new();
-        private readonly List<(Delegate rule, string errorMessage, bool isFromShould)> _rulesWithMessages = new();
+        private readonly Expression<Func<T, TProperty>> _property;
+        private readonly Func<T, TProperty> _propertyFunc;
+        private readonly string _propertyName;
+        private readonly List<(Delegate rule, ValidationFailure? validationFailure, bool isFromShould)> _rulesWithMessages = new();
 
-        private readonly List<(Func<T, bool> rule, string errorMessage)> _dependentRulesWithMessages = new();
-
-        public ValidationRuleBuilder(Func<T, TProperty> property)
+        public ValidationRuleBuilder(Expression<Func<T, TProperty>> property)
         {
             _property = property;
+            _propertyFunc = _property.Compile();
+            _propertyName = GetPropertyName(property);
             _shouldBuilder = new StringBuilder();
             _shouldListBuilder = new StringBuilder();
         }
 
-        public ValidationRuleBuilder<T, TProperty> WithMessage(string errorMessage)
+        private static string GetPropertyName(Expression<Func<T, TProperty>> expression)
+        {
+            if (expression.Body is MemberExpression member)
+                return member.Member.Name;
+
+            if (expression.Body is UnaryExpression unary && unary.Operand is MemberExpression memberExpr)
+                return memberExpr.Member.Name;
+
+            return null;
+        }
+
+        public ValidationRuleBuilder<T, TProperty> WithMessage(string errorMessage, string? errorCode = null)
         {
             if (_rulesWithMessages.Count == 0)
-            {
-                throw new InvalidOperationException("No rules are defined. Please define a rule before setting an error message.");
-            }
+                return this;
 
             var lastRule = _rulesWithMessages.Last();
 
-            if (lastRule.isFromShould)
+            if (lastRule.validationFailure == null)
             {
-                _rulesWithMessages[_rulesWithMessages.Count - 1] = (lastRule.rule, errorMessage, lastRule.isFromShould);
+                var defaultMessage = errorMessage ?? "Validation failed for property.";
+                var defaultCode = errorCode ?? "DefaultRule";
+
+                _rulesWithMessages[_rulesWithMessages.Count - 1] =
+                    (lastRule.rule, new ValidationFailure(
+                        propertyName: _propertyName,
+                        errorMessage: defaultMessage,
+                        attemptedValue: null,
+                        errorCode: defaultCode
+                    ), lastRule.isFromShould);
             }
             else
             {
-                _rulesWithMessages[_rulesWithMessages.Count - 1] = (lastRule.rule, errorMessage, false);
+                var vf = lastRule.validationFailure;
+                var updatedMessage = errorMessage ?? vf.ErrorMessage ?? "Validation failed for property.";
+                var updatedCode = errorCode ?? vf.ErrorCode ?? "DefaultRule";
+
+                _rulesWithMessages[_rulesWithMessages.Count - 1] =
+                    (lastRule.rule, new ValidationFailure(
+                        propertyName: vf.PropertyName,
+                        errorMessage: updatedMessage,
+                        attemptedValue: vf.AttemptedValue,
+                        errorCode: updatedCode,
+                        severity: vf.Severity
+                    ), lastRule.isFromShould);
             }
 
             return this;
         }
 
-        public ValidationRuleBuilder<T, TProperty> AddDependentRule(Func<T, bool> rule, string errorMessage)
-        {
-            _dependentRulesWithMessages.Add((rule, errorMessage));
-            return this;
-        }
 
         public Task<ValidationResult> ValidateAsync(T instance)
         {
             var result = new ValidationResult();
-            var value = _property(instance);
+            var value = _propertyFunc(instance);
             bool isValid = true;
 
-            foreach (var (rule, errorMessage, isFromShould) in _rulesWithMessages)
+            foreach (var (rule, validationFailure, isFromShould) in _rulesWithMessages)
             {
                 if (result.SkipRemainingRules) break;
 
@@ -67,31 +94,20 @@ namespace FlowValidate.Builders
 
                 if (!passed)
                 {
-                    if (isFromShould)
+                    if (!passed)
                     {
-                        string shouldError = GetAllErrors();
-                        result.AddError(errorMessage ?? "Validation should failed for property.");
-                        result.AddError(shouldError ?? "Validation should failed for property.");
-                        result.SetIsValid(false);
-                    }
-                    else
-                    {
-                        result.AddError(errorMessage ?? "Validation failed for property.");
+                        var failure = validationFailure ?? new ValidationFailure(
+                            propertyName: _propertyName,
+                            errorMessage: "Validation failed for property.",
+                            attemptedValue: value,
+                            errorCode: "DefaultRule"
+                        );
+
+                        result.AddFailure(failure);
                         result.SetIsValid(false);
                     }
                 }
             }
-
-
-            if (isValid)
-                foreach (var (rule, errorMessage) in _dependentRulesWithMessages)
-                {
-                    if (!rule(instance))
-                    {
-                        result.AddError(errorMessage);
-                        result.SetIsValid(false);
-                    }
-                }
 
             _shouldBuilder.Clear();
             _shouldListBuilder.Clear();
@@ -101,25 +117,31 @@ namespace FlowValidate.Builders
 
         public ValidationRuleBuilder<T, TProperty> RequiredIf(Func<TProperty, bool> condition)
         {
-            _rulesWithMessages.Add(((Func<T, TProperty, ValidationResult, bool>)((instance, value, result) =>
-            {
-                if (!condition(value))
-                {
-                    result.SetSkipRemainingRules(true);
-                    return false; // geçer say
-                }
+            _rulesWithMessages.Add((
+                  (Func<T, TProperty, ValidationResult, bool>)((instance, value, result) =>
+                  {
+                      if (!condition(value))
+                      {
+                          result.SetSkipRemainingRules(true);
+                          return false;
+                      }
 
-                if (value is string str)
-                    return !string.IsNullOrWhiteSpace(str);
+                      if (value is string str)
+                          return !string.IsNullOrWhiteSpace(str);
 
-                return value != null;
-
-            }), "Property is required.", false));
+                      return value != null;
+                  }),
+                      new ValidationFailure(
+                          propertyName: _propertyName,
+                          errorMessage: "Property is required.",
+                          attemptedValue: null,
+                          errorCode: "Required"
+                      ),
+                  false
+              ));
 
             return this;
         }
-
-
 
         public ValidationRuleBuilder<T, TProperty> Must(Func<TProperty, bool> rule)
         {
@@ -296,40 +318,46 @@ namespace FlowValidate.Builders
 
         public ValidationRuleBuilder<T, TProperty> Should(Action<TProperty, Action<string>> action)
         {
-            Action<string> addError = error => AddShouldError(error);
-            string errors = string.Empty;
-
             _rulesWithMessages.Add((
-                (Func<TProperty, bool>)(value =>
+                (Func<T, TProperty, ValidationResult, bool>)((instance, value, result) =>
                 {
                     try
                     {
-                        action(value, addError);
-                        errors = _shouldBuilder.ToString();
-                        return string.IsNullOrEmpty(_shouldBuilder.ToString());
+                        action(value, error =>
+                        {
+                            result.AddFailure(new ValidationFailure(
+                                propertyName: _propertyName,
+                                errorMessage: error,
+                                attemptedValue: value,
+                                errorCode: "ShouldRule"
+                            ));
+                        });
+                        return true;
                     }
                     catch
                     {
+                        result.AddFailure(new ValidationFailure(
+                            propertyName: _propertyName,
+                            errorMessage: "Unexpected exception in Should rule.",
+                            attemptedValue: value,
+                            errorCode: "ShouldRuleException"
+                        ));
                         return false;
                     }
-                }), "Should custom error", true));
+                }),
+                null,
+                true
+            ));
 
             return this;
         }
-        private void AddShouldError(string error)
-        {
-            if (_shouldBuilder.Length > 0)
-            {
-                _shouldBuilder.Append(" & ");
-            }
-            _shouldBuilder.Append(error);
-        }
+
         public string GetAllErrors() => _shouldBuilder.ToString();
 
         public ValidationRuleBuilder<T, TProperty> Should(Action<TProperty> action, string errorMessage = null)
         {
             _rulesWithMessages.Add((
-                (Func<TProperty, bool>)(value =>
+                (Func<T, TProperty, ValidationResult, bool>)((instance, value, result) =>
                 {
                     try
                     {
@@ -338,44 +366,65 @@ namespace FlowValidate.Builders
                     }
                     catch
                     {
+                        result.AddFailure(new ValidationFailure(
+                            propertyName: _propertyName,
+                            errorMessage: errorMessage ?? "Custom validation failed !",
+                            attemptedValue: value,
+                            errorCode: "ShouldRuleException"
+                        ));
                         return false;
                     }
-                }), errorMessage ?? "Custom validation failed !.", true));
+                }),
+                null,
+                true
+            ));
 
             return this;
         }
 
-        public ValidationRuleBuilder<T, TProperty> Should(Action<TProperty> action, params string[] errorMessage)
-        {
-            if (errorMessage.Length > 0)
-                ErrorMessageToList(errorMessage);
 
+        public ValidationRuleBuilder<T, TProperty> Should(Action<TProperty> action, params string[] errorMessages)
+        {
             _rulesWithMessages.Add((
-                (Func<TProperty, bool>)(value =>
-            {
-                try
+                (Func<T, TProperty, ValidationResult, bool>)((instance, value, result) =>
                 {
-                    action(value);
-                    return AnyListErrors;
-                }
-                catch
-                {
-                    return false;
-                }
-            }), _shouldListBuilder.ToString() ?? "Custom validation failed !", true));
+                    try
+                    {
+                        action(value);
+
+                        if (errorMessages != null && errorMessages.Length > 0)
+                        {
+                            foreach (var msg in errorMessages)
+                            {
+                                result.AddFailure(new ValidationFailure(
+                                    propertyName: _propertyName,
+                                    errorMessage: msg,
+                                    attemptedValue: value,
+                                    errorCode: "ShouldRule"
+                                ));
+                            }
+                        }
+
+                        return true;
+                    }
+                    catch
+                    {
+                        result.AddFailure(new ValidationFailure(
+                            propertyName: _propertyName,
+                            errorMessage: errorMessages != null && errorMessages.Length > 0
+                                ? string.Join(" & ", errorMessages)
+                                : "Custom validation failed !",
+                            attemptedValue: value,
+                            errorCode: "ShouldRuleException"
+                        ));
+                        return false;
+                    }
+                }),
+                null,
+                true
+            ));
 
             return this;
-        }
-        private void ErrorMessageToList(string[] errors)
-        {
-            foreach (var err in errors)
-            {
-                if (_shouldListBuilder.Length > 0)
-                {
-                    _shouldListBuilder.Append(" & ");
-                }
-                _shouldListBuilder.Append(err);
-            }
         }
 
         private bool AnyListErrors => _shouldListBuilder.Length > 0 ? false : true;

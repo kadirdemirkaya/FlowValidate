@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using FlowValidate.Models;
+using System.Text.RegularExpressions;
 
 namespace FlowValidate.Builders
 {
@@ -30,16 +31,19 @@ namespace FlowValidate.Builders
                 var itemResult = await _elementValidator.ValidateAsync(element);
 
                 if (!itemResult.IsValid)
-                {
-                    result.Errors.AddRange(itemResult.Errors.Select(err => $"Element {count}: {err}"));
-                    result.SetIsValid(false);
-                }
+                    foreach (var failure in itemResult.Failures)
+                        result.AddFailure(new ValidationFailure(
+                            propertyName: failure.PropertyName,
+                            errorMessage: $"Element {count}: {failure.ErrorMessage}",
+                            attemptedValue: failure.AttemptedValue,
+                            errorCode: failure.ErrorCode,
+                            severity: failure.Severity
+                        ));
 
                 count++;
             }
 
             return result;
         }
-
     }
 }

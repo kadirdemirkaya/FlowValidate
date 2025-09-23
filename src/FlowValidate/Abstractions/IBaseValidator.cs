@@ -1,12 +1,13 @@
 ﻿using FlowValidate;
 using FlowValidate.Builders;
 using FlowValidate.Rules;
+using System.Linq.Expressions;
 
 namespace FlowValidate.Abstractions
 {
     public interface IBaseValidator<T>
     {
-        ValidationRuleBuilder<T, TProperty> RuleFor<TProperty>(Func<T, TProperty> property);
+        ValidationRuleBuilder<T, TProperty> RuleFor<TProperty>(Expression<Func<T, TProperty>> property);
 
         Task<ValidationResult> ValidateAsync(T instance);
 

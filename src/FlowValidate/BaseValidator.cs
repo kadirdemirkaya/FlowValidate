@@ -1,6 +1,7 @@
 ﻿using FlowValidate.Abstractions;
 using FlowValidate.Builders;
 using FlowValidate.Rules;
+using System.Linq.Expressions;
 
 namespace FlowValidate
 {
@@ -8,7 +9,7 @@ namespace FlowValidate
     {
         protected readonly List<Func<T, Task<ValidationResult>>> _rules = new();
 
-        public ValidationRuleBuilder<T, TProperty> RuleFor<TProperty>(Func<T, TProperty> property)
+        public ValidationRuleBuilder<T, TProperty> RuleFor<TProperty>(Expression<Func<T, TProperty>> property)
         {
             var builder = new ValidationRuleBuilder<T, TProperty>(property);
             _rules.Add(async instance => await builder.ValidateAsync(instance));
@@ -64,14 +65,12 @@ namespace FlowValidate
             foreach (var rule in _rules)
             {
                 var ruleResult = await rule(instance);
-                if (!ruleResult.IsValid)
-                {
-                    result.SetIsValid(false);
-                    result.Errors.AddRange(ruleResult.Errors);
-                }
+
+                if (!ruleResult.IsValid) result.Merge(ruleResult);
             }
 
             return result;
         }
+
     }
 }

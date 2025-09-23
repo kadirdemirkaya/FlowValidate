@@ -67,18 +67,22 @@ namespace FlowValidate.Middlewares
                                     if (!validationResult.IsValid)
                                     {
                                         context.Response.StatusCode = StatusCodes.Status400BadRequest;
-
                                         context.Response.Clear();
                                         context.Response.ContentType = "application/json";
 
-                                        var errors = new
+                                        var errors = validationResult.Failures.Select(f => new
                                         {
-                                            validationResult.Errors
-                                        };
+                                            f.PropertyName,
+                                            f.ErrorMessage,
+                                            f.AttemptedValue,
+                                            f.ErrorCode,
+                                            f.Severity
+                                        });
 
-                                        await context.Response.WriteAsync(JsonConvert.SerializeObject(errors));
+                                        await context.Response.WriteAsync(JsonConvert.SerializeObject(new { Errors = errors }));
                                         return;
                                     }
+
                                 }
                             }
                         }
