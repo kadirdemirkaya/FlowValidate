@@ -6,7 +6,7 @@
 		<Nullable>enable</Nullable>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageId>FlowValidate</PackageId>
-		<Version>1.1.4</Version>
+		<Version>1.1.5</Version>
 		<Authors>Kadir Demirkaya</Authors>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageProjectUrl>https://github.com/kadirdemirkaya/FlowValidate</PackageProjectUrl>
@@ -15,7 +15,7 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageTags>validation, model, request, library</PackageTags>
 		<Description>It is a library developed to validate request-based models.</Description>
-		<AssemblyInformationalVersion>1.1.4</AssemblyInformationalVersion>
+		<AssemblyInformationalVersion>1.1.5</AssemblyInformationalVersion>
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
 	</PropertyGroup>
 

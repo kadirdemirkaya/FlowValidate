@@ -4,7 +4,8 @@ using FlowValidate.Console.Validators;
 
 var user = new User
 {
-    Name = "XoarkanX S 12",
+    //Name = "XoarkanX S 12 e",
+    Name = "a",
     Age = 18,
     PastTime = DateTime.UtcNow.AddDays(-1),
     UserCustomer = new()
@@ -17,7 +18,8 @@ var user = new User
         new UserBasket(){Count = 0,Name = ""},
         new UserBasket(){Count = 52,Name = ""}
     },
-    Email = "kadir@gmail.com"
+    Email = "kadir@gmail.com",
+    Emails = new() { "kadiro@gmail.com", "kadir2@gmail.com" }
 };
 
 var validator = new UserValidator();

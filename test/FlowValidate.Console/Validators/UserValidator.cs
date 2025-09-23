@@ -47,45 +47,22 @@ namespace FlowValidate.Console.Validators
                     }
                 }, "Email format is wrong or is null");
 
-            //RuleFor(user => user.Name)
-            //   .Should((name, addError) =>
-            //   {
-            //       if (string.IsNullOrEmpty(name))
-            //       {
-            //           addError("Name cannot be null or empty.");
-            //       }
-            //       if (name.Length < 3)
-            //       {
-            //           addError("Name must be at least 3 characters long.");
-            //       }
-            //       if (!name.Contains("e"))
-            //       {
-            //           addError("Email is must be contains 'e' character !");
-            //       }
-            //   });
-
-            //RuleFor(user => user.Name)
-            //   .Should((name) =>
-            //   {
-            //       if (string.IsNullOrEmpty(name))
-            //       {
-            //           throw new Exception();
-            //       }
-            //       if (name.Length < 3)
-            //       {
-            //           throw new Exception();
-            //       }
-            //       if (!name.Contains("e"))
-            //       {
-            //           throw new Exception();
-            //       }
-            //   }, "null error", "length error", "e contains error");
-
-            //RuleFor(user => user.Age)
-            //    .Should(age =>
-            //    {
-            //        throw new Exception();
-            //    }, "example error");
+            RuleFor(user => user.Name)
+               .Should((name, addError) =>
+               {
+                   if (string.IsNullOrEmpty(name))
+                   {
+                       addError("Name cannot be null or empty.");
+                   }
+                   if (name.Length < 3)
+                   {
+                       addError("Name must be at least 3 characters long.");
+                   }
+                   if (!name.Contains("e"))
+                   {
+                       addError("Name is must be contains 'e' character !");
+                   }
+               });
 
             //RuleFor(user => user)
             //    .Must(user =>
