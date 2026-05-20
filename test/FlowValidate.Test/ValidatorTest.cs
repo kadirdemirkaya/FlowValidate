@@ -1,4 +1,4 @@
-﻿using FlowValidate.Test.Models;
+using FlowValidate.Test.Models;
 using FlowValidate.Test.Validators;
 using System.Runtime.CompilerServices;
 
@@ -259,6 +259,181 @@ namespace FlowValidate.Test
                 Assert.Contains(result3.Failures, e => e.ErrorMessage.Contains("Nickname cannot contain spaces"));
             }
 
+            [Fact]
+            public void Validate_Synchronous_ShouldPass_ForPurelySynchronousValidator()
+            {
+                // Arrange
+                var user = new User
+                {
+                    Name = "Kadir",
+                    Age = 30,
+                    Email = "test@test.com",
+                    PastTime = DateTime.UtcNow.AddDays(-5),
+                    Tags = new() { "one", "two" }
+                };
+
+                // Act
+                var result = _validator.Validate(user);
+
+                // Assert
+                Assert.True(result.IsValid);
+                Assert.Empty(result.Failures);
+            }
+
+        }
+
+        public class AsyncValidationTests
+        {
+            private class AsyncTestModel
+            {
+                public string Email { get; set; } = string.Empty;
+                public string Username { get; set; } = string.Empty;
+                public string Description { get; set; } = string.Empty;
+            }
+
+            private class AsyncTestValidator : BaseValidator<AsyncTestModel>
+            {
+                public AsyncTestValidator(
+                    Func<string, Task<bool>> emailCheck, 
+                    Func<string, Action<string>, Task> usernameCheck, 
+                    Func<string, Task> descriptionCheck)
+                {
+                    RuleFor(x => x.Email)
+                        .MustAsync(emailCheck)
+                        .WithMessage("Email check failed");
+
+                    RuleFor(x => x.Username)
+                        .ShouldAsync(usernameCheck);
+
+                    RuleFor(x => x.Description)
+                        .ShouldAsync(descriptionCheck, "Description check failed");
+                }
+            }
+
+            [Fact]
+            public async Task MustAsync_ShouldPass_WhenRuleReturnsTrue()
+            {
+                var model = new AsyncTestModel { Email = "test@example.com" };
+                var validator = new AsyncTestValidator(
+                    email => Task.FromResult(true),
+                    (u, addErr) => Task.CompletedTask,
+                    d => Task.CompletedTask
+                );
+
+                var result = await validator.ValidateAsync(model);
+
+                Assert.True(result.IsValid);
+                Assert.Empty(result.Failures);
+            }
+
+            [Fact]
+            public async Task MustAsync_ShouldFail_WhenRuleReturnsFalse()
+            {
+                var model = new AsyncTestModel { Email = "test@example.com" };
+                var validator = new AsyncTestValidator(
+                    email => Task.FromResult(false),
+                    (u, addErr) => Task.CompletedTask,
+                    d => Task.CompletedTask
+                );
+
+                var result = await validator.ValidateAsync(model);
+
+                Assert.False(result.IsValid);
+                Assert.Single(result.Failures);
+                Assert.Contains(result.Failures, f => f.PropertyName == "Email" && f.ErrorMessage == "Email check failed");
+            }
+
+            [Fact]
+            public async Task ShouldAsync_WithErrorCallback_ShouldPass_WhenNoErrorsAdded()
+            {
+                var model = new AsyncTestModel { Username = "validuser" };
+                var validator = new AsyncTestValidator(
+                    email => Task.FromResult(true),
+                    (username, addError) => Task.CompletedTask,
+                    d => Task.CompletedTask
+                );
+
+                var result = await validator.ValidateAsync(model);
+
+                Assert.True(result.IsValid);
+            }
+
+            [Fact]
+            public async Task ShouldAsync_WithErrorCallback_ShouldFail_WhenErrorAdded()
+            {
+                var model = new AsyncTestModel { Username = "invalid" };
+                var validator = new AsyncTestValidator(
+                    email => Task.FromResult(true),
+                    (username, addError) => { addError("Username is invalid"); return Task.CompletedTask; },
+                    d => Task.CompletedTask
+                );
+
+                var result = await validator.ValidateAsync(model);
+
+                Assert.False(result.IsValid);
+                Assert.Contains(result.Failures, f => f.PropertyName == "Username" && f.ErrorMessage == "Username is invalid");
+            }
+
+            [Fact]
+            public async Task ShouldAsync_WithErrorCallback_ShouldFail_WhenExceptionThrown()
+            {
+                var model = new AsyncTestModel { Username = "error" };
+                var validator = new AsyncTestValidator(
+                    email => Task.FromResult(true),
+                    (username, addError) => throw new InvalidOperationException("DB error"),
+                    d => Task.CompletedTask
+                );
+
+                var result = await validator.ValidateAsync(model);
+
+                Assert.False(result.IsValid);
+                Assert.Contains(result.Failures, f => f.PropertyName == "Username" && f.ErrorCode == "ShouldRuleException");
+            }
+
+            [Fact]
+            public async Task ShouldAsync_WithDirectTask_ShouldPass_WhenNoExceptionThrown()
+            {
+                var model = new AsyncTestModel { Description = "Valid description" };
+                var validator = new AsyncTestValidator(
+                    email => Task.FromResult(true),
+                    (u, addErr) => Task.CompletedTask,
+                    desc => Task.CompletedTask
+                );
+
+                var result = await validator.ValidateAsync(model);
+
+                Assert.True(result.IsValid);
+            }
+
+            [Fact]
+            public async Task ShouldAsync_WithDirectTask_ShouldFail_WhenExceptionThrown()
+            {
+                var model = new AsyncTestModel { Description = "Invalid description" };
+                var validator = new AsyncTestValidator(
+                    email => Task.FromResult(true),
+                    (u, addErr) => Task.CompletedTask,
+                    desc => throw new ArgumentException("Bad length")
+                );
+
+                var result = await validator.ValidateAsync(model);
+
+                Assert.False(result.IsValid);
+                Assert.Contains(result.Failures, f => f.PropertyName == "Description" && f.ErrorMessage == "Description check failed");
+            }
+
+            [Fact]
+            public void Validate_Synchronous_ShouldThrow_WhenAsyncRulesExist()
+            {
+                var model = new AsyncTestModel { Email = "test@example.com" };
+                var validator = new AsyncTestValidator(
+                    email => Task.FromResult(true),
+                    (u, addErr) => Task.CompletedTask,
+                    d => Task.CompletedTask
+                );
+
+                var ex = Assert.Throws<InvalidOperationException>(() => validator.Validate(model));
+                Assert.Contains("contains asynchronous rules", ex.Message);
+            }
         }
     }
 }

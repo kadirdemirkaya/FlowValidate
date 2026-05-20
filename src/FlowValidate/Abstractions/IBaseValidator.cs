@@ -1,4 +1,4 @@
-﻿using FlowValidate;
+using FlowValidate;
 using FlowValidate.Builders;
 using FlowValidate.Rules;
 using System.Linq.Expressions;
@@ -11,7 +11,9 @@ namespace FlowValidate.Abstractions
 
         Task<ValidationResult> ValidateAsync(T instance);
 
-        ValidationNestedBuilder<T, TProperty> ValidateNested<TProperty>(Func<T, TProperty> propertyFunc, BaseValidator<TProperty> validator);
+        ValidationResult Validate(T instance);
+
+        ValidationNestedBuilder<T, TProperty> ValidateNested<TProperty>(Func<T, TProperty?> propertyFunc, BaseValidator<TProperty> validator);
 
         ValidationCollectionBuilder<T, TCollection, TElement> ValidateCollection<TCollection, TElement>(
               Func<T, IEnumerable<TCollection>> collectionFunc,
