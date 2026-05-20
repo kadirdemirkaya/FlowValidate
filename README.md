@@ -23,7 +23,7 @@ It provides an intuitive API for validating models, making it easy to add and en
 - **Custom Rules**: Use `Should`, `Must`, `IsNotEmpty`, `IsEqual` or define your own logic.  
 - **Multi-error per Rule**: Single property rules can produce multiple error messages.  
 - **Reusable & Property-specific Validators**: Create modular validators like `UserNameValidator` and apply them to properties.  
-- **Async / Task-based Validation**: Rules can run asynchronously,
+- **Async / Task-based Validation**: Rules can run asynchronously (`MustAsync` / `ShouldAsync`) with a synchronous validation fallback bridge.  
 - **DI Support**: Easy integration with dependency injection.  
 - **Clear Error Messages**: Provides detailed validation feedback.  
 - **Detailed Error Messages**: Provides rich validation feedback with property name, attempted value, and optional error code.
@@ -122,6 +122,59 @@ public class UserValidator : BaseValidator<User>
             });
     }
 }
+```
+
+#### Asynchronous Validation (Async Support)
+
+FlowValidate fully supports asynchronous validation rules for operations that require external or asynchronous calls (e.g., database queries or external API requests). You can use `MustAsync` and `ShouldAsync` inside your validators.
+
+##### Asynchronous Rules Example
+
+```csharp
+public class UserValidator : BaseValidator<User>
+{
+    private readonly IUserRepository _userRepository;
+
+    public UserValidator(IUserRepository userRepository)
+    {
+        _userRepository = userRepository;
+
+        // Using MustAsync for custom async boolean conditions
+        RuleFor(u => u.Email)
+            .MustAsync(async email => !await _userRepository.ExistsAsync(email))
+            .WithMessage("This email address is already in use.");
+
+        // Using ShouldAsync with a multi-error delegate callback
+        RuleFor(u => u.Username)
+            .ShouldAsync(async (username, addError) =>
+            {
+                var isBlacklisted = await _userRepository.IsBlacklistedAsync(username);
+                if (isBlacklisted)
+                {
+                    addError("Username is blacklisted.");
+                }
+            });
+
+        // Using ShouldAsync with an action exception boundary
+        RuleFor(u => u.Bio)
+            .ShouldAsync(async bio => 
+            {
+                await _userRepository.ValidateBioFormatAsync(bio); // Throws if invalid
+            }, "Bio format is invalid.");
+    }
+}
+```
+
+##### Executing Asynchronously vs Synchronously
+
+```csharp
+var validator = new UserValidator(userRepository);
+
+// 1. Asynchronous execution (Recommended when using async rules)
+var resultAsync = await validator.ValidateAsync(user);
+
+// 2. Synchronous execution bridge (Executes async rules synchronously under the hood)
+var resultSync = validator.Validate(user);
 ```
 
 ##### Using the Validator

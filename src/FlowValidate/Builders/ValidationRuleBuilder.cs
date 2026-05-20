@@ -1,4 +1,4 @@
-﻿using FlowValidate.Models;
+using FlowValidate.Models;
 using System.ComponentModel.DataAnnotations;
 using System.Linq.Expressions;
 using System.Text;
@@ -75,44 +75,52 @@ namespace FlowValidate.Builders
         }
 
 
-        public Task<ValidationResult> ValidateAsync(T instance)
+        public async Task<ValidationResult> ValidateAsync(T instance)
         {
             var result = new ValidationResult();
             var value = _propertyFunc(instance);
-            bool isValid = true;
 
             foreach (var (rule, validationFailure, isFromShould) in _rulesWithMessages)
             {
                 if (result.SkipRemainingRules) break;
 
-                bool passed = rule switch
+                bool passed = true;
+
+                if (rule is Func<TProperty, bool> r1)
                 {
-                    Func<TProperty, bool> r1 => r1(value),
-                    Func<T, TProperty, ValidationResult, bool> r2 => r2(instance, value, result),
-                    _ => true
-                };
+                    passed = r1(value);
+                }
+                else if (rule is Func<T, TProperty, ValidationResult, bool> r2)
+                {
+                    passed = r2(instance, value, result);
+                }
+                else if (rule is Func<TProperty, Task<bool>> r3)
+                {
+                    passed = await r3(value);
+                }
+                else if (rule is Func<T, TProperty, ValidationResult, Task<bool>> r4)
+                {
+                    passed = await r4(instance, value, result);
+                }
 
                 if (!passed)
                 {
-                    if (!passed)
-                    {
-                        var failure = validationFailure ?? new ValidationFailure(
-                            propertyName: _propertyName,
-                            errorMessage: "Validation failed for property.",
-                            attemptedValue: value,
-                            errorCode: "DefaultRule"
-                        );
+                    var failure = validationFailure ?? new ValidationFailure(
+                        propertyName: _propertyName,
+                        errorMessage: "Validation failed for property.",
+                        attemptedValue: value,
+                        errorCode: "DefaultRule"
+                    );
 
-                        result.AddFailure(failure);
-                        result.SetIsValid(false);
-                    }
+                    result.AddFailure(failure);
+                    result.SetIsValid(false);
                 }
             }
 
             _shouldBuilder.Clear();
             _shouldListBuilder.Clear();
 
-            return Task.FromResult(result);
+            return result;
         }
 
         public ValidationRuleBuilder<T, TProperty> RequiredIf(Func<TProperty, bool> condition)
@@ -149,6 +157,12 @@ namespace FlowValidate.Builders
             return this;
         }
 
+        public ValidationRuleBuilder<T, TProperty> MustAsync(Func<TProperty, Task<bool>> rule)
+        {
+            _rulesWithMessages.Add((rule, null, false));
+            return this;
+        }
+
         public ValidationRuleBuilder<T, TProperty> IsNotEmpty()
         {
             return Must(value =>
@@ -167,7 +181,7 @@ namespace FlowValidate.Builders
 
         public ValidationRuleBuilder<T, TProperty> Contains(string substring)
         {
-            return Must(value => value.ToString().Contains(substring));
+            return Must(value => value != null && value.ToString() is string str && str.Contains(substring));
         }
 
         public ValidationRuleBuilder<T, TProperty> IsInRange(int minValue, int maxValue)
@@ -196,7 +210,7 @@ namespace FlowValidate.Builders
 
         public ValidationRuleBuilder<T, TProperty> Length(int minLength, int maxLength)
         {
-            return Must(value => value.ToString().Length >= minLength && value.ToString().Length <= maxLength);
+            return Must(value => value != null && value.ToString() is string str && str.Length >= minLength && str.Length <= maxLength);
         }
 
         public ValidationRuleBuilder<T, TProperty> IsGreaterThan(int minValue)
@@ -275,7 +289,8 @@ namespace FlowValidate.Builders
             {
                 if (value == null) return true;
 
-                string str = value.ToString();
+                string? str = value.ToString();
+                if (str == null) return true;
                 int count = 1;
 
                 for (int i = 1; i < str.Length; i++)
@@ -303,7 +318,8 @@ namespace FlowValidate.Builders
                 if (value == null)
                     return true;
 
-                string str = value.ToString().ToLowerInvariant();
+                string? str = value.ToString()?.ToLowerInvariant();
+                if (str == null) return true;
 
                 int length = str.Length;
                 for (int i = 0; i < length / 2; i++)
@@ -352,6 +368,42 @@ namespace FlowValidate.Builders
             return this;
         }
 
+        public ValidationRuleBuilder<T, TProperty> ShouldAsync(Func<TProperty, Action<string>, Task> action)
+        {
+            _rulesWithMessages.Add((
+                (Func<T, TProperty, ValidationResult, Task<bool>>)(async (instance, value, result) =>
+                {
+                    try
+                    {
+                        await action(value, error =>
+                        {
+                            result.AddFailure(new ValidationFailure(
+                                propertyName: _propertyName,
+                                errorMessage: error,
+                                attemptedValue: value,
+                                errorCode: "ShouldRule"
+                            ));
+                        });
+                        return true;
+                    }
+                    catch
+                    {
+                        result.AddFailure(new ValidationFailure(
+                            propertyName: _propertyName,
+                            errorMessage: "Unexpected exception in Should rule.",
+                            attemptedValue: value,
+                            errorCode: "ShouldRuleException"
+                        ));
+                        return false;
+                    }
+                }),
+                null,
+                true
+            ));
+
+            return this;
+        }
+
         public string GetAllErrors() => _shouldBuilder.ToString();
 
         public ValidationRuleBuilder<T, TProperty> Should(Action<TProperty> action, string errorMessage = null)
@@ -362,6 +414,34 @@ namespace FlowValidate.Builders
                     try
                     {
                         action(value);
+                        return true;
+                    }
+                    catch
+                    {
+                        result.AddFailure(new ValidationFailure(
+                            propertyName: _propertyName,
+                            errorMessage: errorMessage ?? "Custom validation failed !",
+                            attemptedValue: value,
+                            errorCode: "ShouldRuleException"
+                        ));
+                        return false;
+                    }
+                }),
+                null,
+                true
+            ));
+
+            return this;
+        }
+
+        public ValidationRuleBuilder<T, TProperty> ShouldAsync(Func<TProperty, Task> action, string errorMessage = null)
+        {
+            _rulesWithMessages.Add((
+                (Func<T, TProperty, ValidationResult, Task<bool>>)(async (instance, value, result) =>
+                {
+                    try
+                    {
+                        await action(value);
                         return true;
                     }
                     catch
@@ -426,6 +506,10 @@ namespace FlowValidate.Builders
 
             return this;
         }
+
+        public bool HasAsyncRules => _rulesWithMessages.Any(r => 
+            r.rule is Func<TProperty, Task<bool>> || 
+            r.rule is Func<T, TProperty, ValidationResult, Task<bool>>);
 
         private bool AnyListErrors => _shouldListBuilder.Length > 0 ? false : true;
     }
