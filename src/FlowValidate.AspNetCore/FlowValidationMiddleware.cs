@@ -10,13 +10,13 @@ namespace FlowValidate.AspNetCore
     public class FlowValidationMiddleware
     {
         private readonly RequestDelegate _next;
-        private readonly Assembly _assembly;
+        private readonly ActionParameterTypeCache _actionParameterTypes;
         private readonly IServiceProvider _serviceProvider;
 
         public FlowValidationMiddleware(RequestDelegate next, Assembly assembly, IServiceProvider serviceProvider)
         {
             _next = next;
-            _assembly = assembly;
+            _actionParameterTypes = new ActionParameterTypeCache(assembly);
             _serviceProvider = serviceProvider;
         }
 
@@ -26,72 +26,57 @@ namespace FlowValidate.AspNetCore
             var actionDescriptor = routeData.Values["action"] as string;
             var controllerDescriptor = routeData.Values["controller"] as string;
 
-            if (!string.IsNullOrEmpty(actionDescriptor) && !string.IsNullOrEmpty(controllerDescriptor))
+            if (!string.IsNullOrEmpty(actionDescriptor) && !string.IsNullOrEmpty(controllerDescriptor)
+                && _actionParameterTypes.TryGetParameterTypes(controllerDescriptor, actionDescriptor, out var parameterTypes))
             {
-                var controllerType = _assembly.GetTypes()
-                    .FirstOrDefault(t => t.Name.Equals($"{controllerDescriptor}Controller", StringComparison.OrdinalIgnoreCase));
-
-                if (controllerType != null)
+                foreach (var modelType in parameterTypes)
                 {
-                    var actionMethod = controllerType.GetMethods()
-                        .FirstOrDefault(m => m.Name.Equals(actionDescriptor, StringComparison.OrdinalIgnoreCase));
+                    var validatorInterface = typeof(IBaseValidator<>);
 
-                    if (actionMethod != null)
+                    context.Request.EnableBuffering();
+                    var requestBody = await new StreamReader(context.Request.Body).ReadToEndAsync();
+                    context.Request.Body.Position = 0;
+
+                    var model = JsonConvert.DeserializeObject(requestBody, modelType);
+
+                    using (var scope = _serviceProvider.CreateScope())
                     {
-                        var parameters = actionMethod.GetParameters();
+                        var validatorType = validatorInterface.MakeGenericType(modelType);
+                        var validator = scope.ServiceProvider.GetService(validatorType);
 
-                        foreach (var parameter in parameters)
+                        if (validator != null)
                         {
-                            var modelType = parameter.ParameterType;
+                            var method = validatorType.GetMethod("ValidateAsync");
 
-                            var validatorInterface = typeof(IBaseValidator<>);
-
-                            context.Request.EnableBuffering();
-                            var requestBody = await new StreamReader(context.Request.Body).ReadToEndAsync();
-                            context.Request.Body.Position = 0;
-
-                            var model = JsonConvert.DeserializeObject(requestBody, modelType);
-
-                            using (var scope = _serviceProvider.CreateScope())
+                            if (method is null)
                             {
-                                var validatorType = validatorInterface.MakeGenericType(modelType);
-                                var validator = scope.ServiceProvider.GetService(validatorType);
+                                continue;
+                            }
 
-                                if (validator != null)
+                            if (method.Invoke(validator, new[] { model }) is not Task<ValidationResult> task)
+                            {
+                                continue;
+                            }
+
+                            var validationResult = await task;
+
+                            if (!validationResult.IsValid)
+                            {
+                                context.Response.Clear();
+                                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                                context.Response.ContentType = "application/json";
+
+                                var errors = validationResult.Failures.Select(f => new
                                 {
-                                    var method = validatorType.GetMethod("ValidateAsync");
+                                    f.PropertyName,
+                                    f.ErrorMessage,
+                                    f.AttemptedValue,
+                                    f.ErrorCode,
+                                    f.Severity
+                                });
 
-                                    if (method is null)
-                                    {
-                                        continue;
-                                    }
-
-                                    if (method.Invoke(validator, new[] { model }) is not Task<ValidationResult> task)
-                                    {
-                                        continue;
-                                    }
-
-                                    var validationResult = await task;
-
-                                    if (!validationResult.IsValid)
-                                    {
-                                        context.Response.Clear();
-                                        context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                                        context.Response.ContentType = "application/json";
-
-                                        var errors = validationResult.Failures.Select(f => new
-                                        {
-                                            f.PropertyName,
-                                            f.ErrorMessage,
-                                            f.AttemptedValue,
-                                            f.ErrorCode,
-                                            f.Severity
-                                        });
-
-                                        await context.Response.WriteAsync(JsonConvert.SerializeObject(new { Errors = errors }));
-                                        return;
-                                    }
-                                }
+                                await context.Response.WriteAsync(JsonConvert.SerializeObject(new { Errors = errors }));
+                                return;
                             }
                         }
                     }
