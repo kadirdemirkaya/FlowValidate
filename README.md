@@ -23,6 +23,7 @@ Targets `net6.0`, `net7.0`, `net8.0`, `net9.0` and `net10.0`.
 - **Property Validation**: Validate standard properties, nested objects, and collections.  
 - **Nested & Collection Support**: Automatically validates complex types and lists.  
 - **Custom Rules**: Use `Should`, `Must`, `IsNotEmpty`, `IsEqual` or define your own logic.  
+- **Typed Ranges**: `IsInRange`, `IsGreaterThan` and `IsLessThan` work on `decimal`, `double`, `long`, `DateTime` and any other `IComparable<T>` type, including nullable ones.  
 - **Multi-error per Rule**: Single property rules can produce multiple error messages.  
 - **Reusable & Property-specific Validators**: Create modular validators like `UserNameValidator` and apply them to properties.  
 - **Async / Task-based Validation**: Rules can run asynchronously (`MustAsync` / `ShouldAsync`) with a synchronous validation fallback bridge.  
@@ -230,6 +231,28 @@ Every `ValidationFailure.PropertyName` is non-null. A plain member access report
 | `RuleFor(x => x.Baskets[0])` (list) | `x.Baskets.get_Item(0)` |
 | `RuleFor(x => x.Name.Trim())` | `x.Name.Trim()` |
 | `RuleFor(x => x)` | `x` |
+
+##### Ranges and Comparisons for Any Ordered Type
+
+`IsInRange`, `IsGreaterThan` and `IsLessThan` work on any property type that implements `IComparable<T>`: `decimal`, `double`, `long`, `DateTime`, `DateOnly`, `string` and their nullable forms. Pass bounds of the property's own type; a bound of another type does not compile.
+
+```csharp
+public class ProductValidator : BaseValidator<Product>
+{
+    public ProductValidator()
+    {
+        RuleFor(x => x.Price).IsInRange(0.01m, 999.99m);
+        RuleFor(x => x.Rating).IsGreaterThan(0.0).IsLessThan(5.5);
+        RuleFor(x => x.Views).IsLessThan(10_000_000_000L);
+        RuleFor(x => x.ReleasedAt).IsGreaterThan(new DateTime(2020, 1, 1));
+        RuleFor(x => x.Discount).IsInRange(0m, 0.5m);
+    }
+}
+```
+
+- `IsInRange` includes both bounds; `IsGreaterThan` and `IsLessThan` are strict.
+- A `null` value fails these rules. For an optional property that may be `null`, use `Must`, for example `RuleFor(x => x.Discount).Must(d => d is null or (>= 0m and <= 0.5m))`.
+- Integer bounds such as `IsInRange(1, 10)` still bind to the original `int` overloads, which behave exactly as before and only accept `int`-convertible values. On a `decimal`, `double` or `long` property, write the bounds with the matching literal suffix (`1m`, `1.0`, `1L`).
 
 For more examples and unit tests, check the [FlowValidate.Test](https://github.com/kadirdemirkaya/FlowValidate/tree/main/test/FlowValidate.Test) project in the repository.  
 
