@@ -11,6 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\FlowValidate.AspNetCore\FlowValidate.AspNetCore.csproj" />
     <ProjectReference Include="..\..\src\FlowValidate\FlowValidate.csproj" />
   </ItemGroup>
 

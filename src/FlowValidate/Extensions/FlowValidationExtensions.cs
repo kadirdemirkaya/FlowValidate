@@ -34,15 +34,18 @@ namespace FlowValidate.Extensions
                 services.AddScoped(validator.Interface, validator.Implementation);
             }
 
+#pragma warning disable CS0618
             services.AddTransient<ModelValidationMiddleware>(sp => new ModelValidationMiddleware(
                  sp.GetRequiredService<RequestDelegate>(),
                  sp.GetRequiredService<Assembly>(),
                  sp
             ));
+#pragma warning restore CS0618
 
             return services;
         }
 
+        [Obsolete("Use app.UseFlowValidation() from the FlowValidate.AspNetCore package. FlowValidationApp will be removed from the core package in the next major version.")]
         public static IApplicationBuilder FlowValidationApp(this IApplicationBuilder app)
         {
             app.UseMiddleware<ModelValidationMiddleware>();

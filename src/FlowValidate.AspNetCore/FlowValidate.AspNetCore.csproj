@@ -5,7 +5,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-		<PackageId>FlowValidate</PackageId>
+		<PackageId>FlowValidate.AspNetCore</PackageId>
 		<Version>1.2.0</Version>
 		<Authors>Kadir Demirkaya</Authors>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -13,11 +13,11 @@
 		<RepositoryUrl>https://github.com/kadirdemirkaya/FlowValidate</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageTags>validation, model, request, library</PackageTags>
-		<Description>It is a lightweight validation library developed to validate request-based models. Now supports fully asynchronous validation rules (MustAsync, ShouldAsync) and synchronous validation helpers.</Description>
+		<PackageTags>validation, model, request, middleware, aspnetcore</PackageTags>
+		<Description>ASP.NET Core request validation middleware for FlowValidate. Validates controller action models with the registered FlowValidate validators and answers invalid requests with 400 Bad Request and the validation failures.</Description>
 		<AssemblyInformationalVersion>1.2.0</AssemblyInformationalVersion>
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-		<PackageReleaseNotes>Added support for asynchronous validation rules (MustAsync, ShouldAsync), synchronous validation bridge (Validate method), and nullability/compiler warning fixes.</PackageReleaseNotes>
+		<PackageReleaseNotes>First release: the request validation middleware now ships in its own package (app.UseFlowValidation()), built on the ASP.NET Core shared framework, and answers invalid requests with 400 Bad Request.</PackageReleaseNotes>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -26,10 +26,15 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
-		<PackageReference Include="Microsoft.AspNetCore.Http" Version="2.1.34" />
-		<PackageReference Include="Microsoft.AspNetCore.Routing" Version="2.1.1" />
-		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\FlowValidate\FlowValidate.csproj" />
 	</ItemGroup>
 
 </Project>

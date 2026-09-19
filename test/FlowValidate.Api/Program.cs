@@ -1,3 +1,4 @@
+using FlowValidate.AspNetCore;
 using FlowValidate.Extensions;
 using System.Reflection.Metadata;
 
@@ -20,7 +21,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 // middleware 
-app.FlowValidationApp();
+app.UseFlowValidation();
 
 app.UseAuthorization();
 
