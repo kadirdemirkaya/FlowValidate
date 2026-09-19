@@ -195,6 +195,19 @@ var validator = new UserValidator();
 var result = validator.Validate(user);
 ```
 
+##### Property Names in Failures
+
+Every `ValidationFailure.PropertyName` is non-null. A plain member access reports the member name; any other expression reports its expression text.
+
+| Rule | `PropertyName` |
+|---|---|
+| `RuleFor(x => x.Name)` | `Name` |
+| `RuleFor(x => x.Details.Email)` | `Email` |
+| `RuleFor(x => x.Tags[0])` (array) | `x.Tags[0]` |
+| `RuleFor(x => x.Baskets[0])` (list) | `x.Baskets.get_Item(0)` |
+| `RuleFor(x => x.Name.Trim())` | `x.Name.Trim()` |
+| `RuleFor(x => x)` | `x` |
+
 For more examples and unit tests, check the [FlowValidate.Test](https://github.com/kadirdemirkaya/FlowValidate/tree/main/test/FlowValidate.Test) project in the repository.  
 
 - [API Examples](https://github.com/kadirdemirkaya/FlowValidate/tree/main/test/FlowValidate.Api)  
