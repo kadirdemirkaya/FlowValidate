@@ -68,6 +68,8 @@ app.UseFlowValidation();
 app.Run();
 ```
 
+Calling `FlowValidationService` more than once with the same assembly is safe. The repeated call does not add duplicate validator or assembly registrations. Validators stay `Scoped`. Calls with different assemblies register all of them, and the middleware keeps scanning the most recently registered assembly.
+
 When a controller action's model fails validation, `UseFlowValidation()` responds with `400 Bad Request` and a JSON body:
 
 ```json
