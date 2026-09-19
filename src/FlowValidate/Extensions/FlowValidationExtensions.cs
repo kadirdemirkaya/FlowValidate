@@ -22,11 +22,15 @@ namespace FlowValidate.Extensions
                     Interface = t.GetInterfaces()
                                  .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == validatorType),
                     Implementation = t
-                })
-                .Where(v => v.Interface != null);
+                });
 
             foreach (var validator in validators)
             {
+                if (validator.Interface is null)
+                {
+                    continue;
+                }
+
                 services.AddScoped(validator.Interface, validator.Implementation);
             }
 

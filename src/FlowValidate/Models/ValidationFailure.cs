@@ -17,7 +17,7 @@ namespace FlowValidate.Models
                                  Severity severity = Severity.Error)
         {
             ErrorMessage = errorMessage ?? throw new ArgumentNullException(nameof(errorMessage));
-            PropertyName = propertyName;
+            PropertyName = propertyName ?? "<root>";
             AttemptedValue = attemptedValue;
             ErrorCode = errorCode;
             Severity = severity;
@@ -25,9 +25,8 @@ namespace FlowValidate.Models
 
         public override string ToString()
         {
-            var propertyPart = PropertyName ?? "<root>";
             var codePart = string.IsNullOrEmpty(ErrorCode) ? "" : $" - [{ErrorCode}]";
-            return $"{propertyPart}{codePart}: {ErrorMessage}";
+            return $"{PropertyName}{codePart}: {ErrorMessage}";
         }
 
     }
