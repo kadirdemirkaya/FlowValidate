@@ -1,3 +1,4 @@
+using FlowValidate.Builders;
 using FlowValidate.Test.Models;
 using FlowValidate.Test.Validators;
 using System.Runtime.CompilerServices;
@@ -433,6 +434,38 @@ namespace FlowValidate.Test
 
                 var ex = Assert.Throws<InvalidOperationException>(() => validator.Validate(model));
                 Assert.Contains("contains asynchronous rules", ex.Message);
+            }
+        }
+
+        public class GetAllErrorsTests
+        {
+            private class ObsoleteTestModel
+            {
+                public string Name { get; set; } = string.Empty;
+            }
+
+            private class ObsoleteTestValidator : BaseValidator<ObsoleteTestModel>
+            {
+                public ValidationRuleBuilder<ObsoleteTestModel, string> NameRuleBuilder;
+
+                public ObsoleteTestValidator()
+                {
+                    NameRuleBuilder = RuleFor(x => x.Name).IsNotEmpty();
+                }
+            }
+
+            [Fact]
+            public async Task GetAllErrors_ReturnsEmptyString_AfterValidation()
+            {
+                var model = new ObsoleteTestModel { Name = string.Empty };
+                var validator = new ObsoleteTestValidator();
+
+                var result = await validator.ValidateAsync(model);
+
+                Assert.False(result.IsValid);
+#pragma warning disable CS0618
+                Assert.Equal(string.Empty, validator.NameRuleBuilder.GetAllErrors());
+#pragma warning restore CS0618
             }
         }
     }

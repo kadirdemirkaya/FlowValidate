@@ -1,15 +1,12 @@
 using FlowValidate.Models;
 using System.ComponentModel.DataAnnotations;
 using System.Linq.Expressions;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace FlowValidate.Builders
 {
     public class ValidationRuleBuilder<T, TProperty>
     {
-        private StringBuilder _shouldBuilder;
-        private StringBuilder _shouldListBuilder;
         private readonly Expression<Func<T, TProperty>> _property;
         private readonly Func<T, TProperty> _propertyFunc;
         private readonly string _propertyName;
@@ -20,8 +17,6 @@ namespace FlowValidate.Builders
             _property = property;
             _propertyFunc = _property.Compile();
             _propertyName = GetPropertyName(property);
-            _shouldBuilder = new StringBuilder();
-            _shouldListBuilder = new StringBuilder();
         }
 
         private static string GetPropertyName(Expression<Func<T, TProperty>> expression)
@@ -116,9 +111,6 @@ namespace FlowValidate.Builders
                     result.SetIsValid(false);
                 }
             }
-
-            _shouldBuilder.Clear();
-            _shouldListBuilder.Clear();
 
             return result;
         }
@@ -404,7 +396,8 @@ namespace FlowValidate.Builders
             return this;
         }
 
-        public string GetAllErrors() => _shouldBuilder.ToString();
+        [Obsolete("This method never accumulated any errors and always returns an empty string. Use ValidationResult.Failures instead.")]
+        public string GetAllErrors() => string.Empty;
 
         public ValidationRuleBuilder<T, TProperty> Should(Action<TProperty> action, string? errorMessage = null)
         {
@@ -507,10 +500,8 @@ namespace FlowValidate.Builders
             return this;
         }
 
-        public bool HasAsyncRules => _rulesWithMessages.Any(r => 
-            r.rule is Func<TProperty, Task<bool>> || 
+        public bool HasAsyncRules => _rulesWithMessages.Any(r =>
+            r.rule is Func<TProperty, Task<bool>> ||
             r.rule is Func<T, TProperty, ValidationResult, Task<bool>>);
-
-        private bool AnyListErrors => _shouldListBuilder.Length > 0 ? false : true;
     }
 }
