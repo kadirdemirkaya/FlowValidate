@@ -28,7 +28,7 @@ It provides an intuitive API for validating models, making it easy to add and en
 - **Clear Error Messages**: Provides detailed validation feedback.  
 - **Detailed Error Messages**: Provides rich validation feedback with property name, attempted value, and optional error code.
 - **Lightweight & Fast**: Optimized for high performance.  
-- **Middleware Ready**: Can validate models automatically on each request.
+- **Middleware Ready**: Can validate models automatically on each request with the separate `FlowValidate.AspNetCore` package.
 
 
 #### Installation
@@ -39,20 +39,41 @@ You can install **FlowValidate** via NuGet Package Manager
 dotnet add package FlowValidate
 ```
 
+To validate ASP.NET Core requests automatically, also install the middleware package:
+
+```bash
+dotnet add package FlowValidate.AspNetCore
+```
+
+`FlowValidate` contains the validation API only. Console, worker and other non-web apps need just this package.
+
 
 #### Injection
 
-```bash
+```csharp
+using FlowValidate.AspNetCore;
+using FlowValidate.Extensions;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.FlowValidationService(AssemblyReference.Assembly); 
 
 var app = builder.Build();
 
-app.FlowValidationApp();
+app.UseFlowValidation();
 
 app.Run();
 ```
+
+When a controller action's model fails validation, `UseFlowValidation()` responds with `400 Bad Request` and a JSON body:
+
+```json
+{"Errors":[{"PropertyName":"Name","ErrorMessage":"Name is required.","AttemptedValue":null,"ErrorCode":"NAME_REQUIRED","Severity":2}]}
+```
+
+##### Migrating from `FlowValidationApp()`
+
+`app.FlowValidationApp()` and `ModelValidationMiddleware` in the core package are obsolete. They keep working in this version and will be removed from the core package in the next major version. To migrate, install `FlowValidate.AspNetCore` and replace `app.FlowValidationApp()` with `app.UseFlowValidation()`. The error body is identical. One difference: the obsolete `FlowValidationApp()` answers invalid requests with `200 OK`, while `UseFlowValidation()` answers them with `400 Bad Request`. If a client checks for `200` together with the `Errors` body, update the client when you migrate.
 
 #### For example, we create a uservalidator 
 

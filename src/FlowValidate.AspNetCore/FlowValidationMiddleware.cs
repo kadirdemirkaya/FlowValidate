@@ -1,21 +1,19 @@
-﻿using FlowValidate.Abstractions;
+using FlowValidate.Abstractions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
-using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 
-namespace FlowValidate.Middlewares
+namespace FlowValidate.AspNetCore
 {
-    [Obsolete("Use app.UseFlowValidation() from the FlowValidate.AspNetCore package. ModelValidationMiddleware will be removed from the core package in the next major version.")]
-    public class ModelValidationMiddleware
+    public class FlowValidationMiddleware
     {
         private readonly RequestDelegate _next;
         private readonly Assembly _assembly;
         private readonly IServiceProvider _serviceProvider;
 
-        public ModelValidationMiddleware(RequestDelegate next, Assembly assembly, IServiceProvider serviceProvider)
+        public FlowValidationMiddleware(RequestDelegate next, Assembly assembly, IServiceProvider serviceProvider)
         {
             _next = next;
             _assembly = assembly;
@@ -48,9 +46,9 @@ namespace FlowValidate.Middlewares
 
                             var validatorInterface = typeof(IBaseValidator<>);
 
-                            context.Request.EnableBuffering(); // Request body'sini yeniden okumaya izin ver
+                            context.Request.EnableBuffering();
                             var requestBody = await new StreamReader(context.Request.Body).ReadToEndAsync();
-                            context.Request.Body.Position = 0; // Body konumunu sıfırlıyoruz
+                            context.Request.Body.Position = 0;
 
                             var model = JsonConvert.DeserializeObject(requestBody, modelType);
 
@@ -77,8 +75,8 @@ namespace FlowValidate.Middlewares
 
                                     if (!validationResult.IsValid)
                                     {
-                                        context.Response.StatusCode = StatusCodes.Status400BadRequest;
                                         context.Response.Clear();
+                                        context.Response.StatusCode = StatusCodes.Status400BadRequest;
                                         context.Response.ContentType = "application/json";
 
                                         var errors = validationResult.Failures.Select(f => new
@@ -93,7 +91,6 @@ namespace FlowValidate.Middlewares
                                         await context.Response.WriteAsync(JsonConvert.SerializeObject(new { Errors = errors }));
                                         return;
                                     }
-
                                 }
                             }
                         }
