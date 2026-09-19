@@ -32,7 +32,7 @@ namespace FlowValidate.Builders
             if (expression.Body is UnaryExpression unary && unary.Operand is MemberExpression memberExpr)
                 return memberExpr.Member.Name;
 
-            return null;
+            return expression.Body.ToString();
         }
 
         public ValidationRuleBuilder<T, TProperty> WithMessage(string errorMessage, string? errorCode = null)
