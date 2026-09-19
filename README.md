@@ -15,6 +15,8 @@ You can find the source code and contribute on [GitHub](https://github.com/kadir
 **FlowValidate** is a lightweight, fluent-style validation library for .NET.  
 It provides an intuitive API for validating models, making it easy to add and enforce rules while reducing boilerplate code.
 
+Targets `net6.0`, `net7.0`, `net8.0`, `net9.0` and `net10.0`.
+
 
 #### Features
 
