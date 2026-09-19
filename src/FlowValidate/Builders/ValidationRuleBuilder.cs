@@ -406,7 +406,7 @@ namespace FlowValidate.Builders
 
         public string GetAllErrors() => _shouldBuilder.ToString();
 
-        public ValidationRuleBuilder<T, TProperty> Should(Action<TProperty> action, string errorMessage = null)
+        public ValidationRuleBuilder<T, TProperty> Should(Action<TProperty> action, string? errorMessage = null)
         {
             _rulesWithMessages.Add((
                 (Func<T, TProperty, ValidationResult, bool>)((instance, value, result) =>
@@ -434,7 +434,7 @@ namespace FlowValidate.Builders
             return this;
         }
 
-        public ValidationRuleBuilder<T, TProperty> ShouldAsync(Func<TProperty, Task> action, string errorMessage = null)
+        public ValidationRuleBuilder<T, TProperty> ShouldAsync(Func<TProperty, Task> action, string? errorMessage = null)
         {
             _rulesWithMessages.Add((
                 (Func<T, TProperty, ValidationResult, Task<bool>>)(async (instance, value, result) =>

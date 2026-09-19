@@ -61,7 +61,17 @@ namespace FlowValidate.Middlewares
                                 if (validator != null)
                                 {
                                     var method = validatorType.GetMethod("ValidateAsync");
-                                    var task = (Task<ValidationResult>)method.Invoke(validator, new[] { model });
+
+                                    if (method is null)
+                                    {
+                                        continue;
+                                    }
+
+                                    if (method.Invoke(validator, new[] { model }) is not Task<ValidationResult> task)
+                                    {
+                                        continue;
+                                    }
+
                                     var validationResult = await task;
 
                                     if (!validationResult.IsValid)
