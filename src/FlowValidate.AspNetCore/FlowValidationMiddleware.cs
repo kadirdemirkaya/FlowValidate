@@ -10,13 +10,13 @@ namespace FlowValidate.AspNetCore
     public class FlowValidationMiddleware
     {
         private readonly RequestDelegate _next;
-        private readonly ActionParameterTypeCache _actionParameterTypes;
+        private readonly ActionBodyParameterCache _actionBodyParameters;
         private readonly IServiceProvider _serviceProvider;
 
         public FlowValidationMiddleware(RequestDelegate next, Assembly assembly, IServiceProvider serviceProvider)
         {
             _next = next;
-            _actionParameterTypes = new ActionParameterTypeCache(assembly);
+            _actionBodyParameters = new ActionBodyParameterCache(assembly);
             _serviceProvider = serviceProvider;
         }
 
@@ -27,37 +27,25 @@ namespace FlowValidate.AspNetCore
             var controllerDescriptor = routeData.Values["controller"] as string;
 
             if (!string.IsNullOrEmpty(actionDescriptor) && !string.IsNullOrEmpty(controllerDescriptor)
-                && _actionParameterTypes.TryGetParameterTypes(controllerDescriptor, actionDescriptor, out var parameterTypes))
+                && _actionBodyParameters.TryGetBodyParameterType(controllerDescriptor, actionDescriptor, out var modelType))
             {
-                foreach (var modelType in parameterTypes)
+                context.Request.EnableBuffering();
+                var requestBody = await new StreamReader(context.Request.Body).ReadToEndAsync();
+                context.Request.Body.Position = 0;
+
+                var model = JsonConvert.DeserializeObject(requestBody, modelType);
+
+                using (var scope = _serviceProvider.CreateScope())
                 {
-                    var validatorInterface = typeof(IBaseValidator<>);
+                    var validatorType = typeof(IBaseValidator<>).MakeGenericType(modelType);
+                    var validator = scope.ServiceProvider.GetService(validatorType);
 
-                    context.Request.EnableBuffering();
-                    var requestBody = await new StreamReader(context.Request.Body).ReadToEndAsync();
-                    context.Request.Body.Position = 0;
-
-                    var model = JsonConvert.DeserializeObject(requestBody, modelType);
-
-                    using (var scope = _serviceProvider.CreateScope())
+                    if (validator != null)
                     {
-                        var validatorType = validatorInterface.MakeGenericType(modelType);
-                        var validator = scope.ServiceProvider.GetService(validatorType);
+                        var method = validatorType.GetMethod("ValidateAsync");
 
-                        if (validator != null)
+                        if (method is not null && method.Invoke(validator, new[] { model }) is Task<ValidationResult> task)
                         {
-                            var method = validatorType.GetMethod("ValidateAsync");
-
-                            if (method is null)
-                            {
-                                continue;
-                            }
-
-                            if (method.Invoke(validator, new[] { model }) is not Task<ValidationResult> task)
-                            {
-                                continue;
-                            }
-
                             var validationResult = await task;
 
                             if (!validationResult.IsValid)

@@ -76,6 +76,10 @@ When a controller action's model fails validation, `UseFlowValidation()` respond
 {"Errors":[{"PropertyName":"Name","ErrorMessage":"Name is required.","AttemptedValue":null,"ErrorCode":"NAME_REQUIRED","Severity":2}]}
 ```
 
+##### Which action parameter is validated
+
+`UseFlowValidation()` reads the request body for a single parameter of the matched action: the one marked `[FromBody]`, or — when no parameter is marked — the single complex-typed parameter that has no binding source attribute. Parameters bound from somewhere else (`[FromQuery]`, `[FromRoute]`, `[FromHeader]`, `[FromForm]`, `[FromServices]`) and simple types such as `int` or `string` are never deserialized from the body, so a mixed signature like `Create([FromBody] Order order, [FromQuery] OrderFilter filter)` validates `order` only. If the action has no parameter that binds from the body, the request passes through untouched and the body is not read at all. The body is buffered and rewound, so the model binder and later middleware still read it normally.
+
 ##### Migrating from `FlowValidationApp()`
 
 `app.FlowValidationApp()` and `ModelValidationMiddleware` in the core package are obsolete. They keep working in this version and will be removed from the core package in the next major version. To migrate, install `FlowValidate.AspNetCore` and replace `app.FlowValidationApp()` with `app.UseFlowValidation()`. The error body is identical. One difference: the obsolete `FlowValidationApp()` answers invalid requests with `200 OK`, while `UseFlowValidation()` answers them with `400 Bad Request`. If a client checks for `200` together with the `Errors` body, update the client when you migrate.
