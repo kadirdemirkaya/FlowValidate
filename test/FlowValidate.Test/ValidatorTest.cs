@@ -559,6 +559,42 @@ namespace FlowValidate.Test
             }
         }
 
+        public class WithMessageAttemptedValueTests
+        {
+            private class WithMessageTestModel
+            {
+                public string Name { get; set; } = string.Empty;
+            }
+
+            private class WithMessageTestValidator : BaseValidator<WithMessageTestModel>
+            {
+                public WithMessageTestValidator()
+                {
+                    RuleFor(x => x.Name)
+                        .Must(value => false)
+                        .WithMessage("custom message", "CustomCode");
+                }
+            }
+
+            [Fact]
+            public void Must_WithMessage_KeepsAttemptedValue_WhenRuleFails()
+            {
+                // Arrange
+                var validator = new WithMessageTestValidator();
+                var model = new WithMessageTestModel { Name = "abc" };
+
+                // Act
+                var result = validator.Validate(model);
+
+                // Assert
+                Assert.False(result.IsValid);
+                var failure = Assert.Single(result.Failures);
+                Assert.Equal("abc", failure.AttemptedValue);
+                Assert.Equal("custom message", failure.ErrorMessage);
+                Assert.Equal("CustomCode", failure.ErrorCode);
+            }
+        }
+
         public class ShouldParamsSuccessTests
         {
             private class ShouldParamsSuccessTestModel

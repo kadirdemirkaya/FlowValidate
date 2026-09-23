@@ -10,7 +10,7 @@ namespace FlowValidate.Builders
         private readonly Expression<Func<T, TProperty>> _property;
         private readonly Func<T, TProperty> _propertyFunc;
         private readonly string _propertyName;
-        private readonly List<(Delegate rule, ValidationFailure? validationFailure, bool isFromShould)> _rulesWithMessages = new();
+        private readonly List<(Delegate rule, ValidationFailure? validationFailure, bool isFromShould, (string ErrorMessage, string? ErrorCode)? messageOverride)> _rulesWithMessages = new();
 
         public ValidationRuleBuilder(Expression<Func<T, TProperty>> property)
         {
@@ -43,12 +43,7 @@ namespace FlowValidate.Builders
                 var defaultCode = errorCode ?? "DefaultRule";
 
                 _rulesWithMessages[_rulesWithMessages.Count - 1] =
-                    (lastRule.rule, new ValidationFailure(
-                        propertyName: _propertyName,
-                        errorMessage: defaultMessage,
-                        attemptedValue: null,
-                        errorCode: defaultCode
-                    ), lastRule.isFromShould);
+                    (lastRule.rule, null, lastRule.isFromShould, (defaultMessage, defaultCode));
             }
             else
             {
@@ -63,7 +58,7 @@ namespace FlowValidate.Builders
                         attemptedValue: vf.AttemptedValue,
                         errorCode: updatedCode,
                         severity: vf.Severity
-                    ), lastRule.isFromShould);
+                    ), lastRule.isFromShould, lastRule.messageOverride);
             }
 
             return this;
@@ -75,7 +70,7 @@ namespace FlowValidate.Builders
             var result = new ValidationResult();
             var value = _propertyFunc(instance);
 
-            foreach (var (rule, validationFailure, isFromShould) in _rulesWithMessages)
+            foreach (var (rule, validationFailure, isFromShould, messageOverride) in _rulesWithMessages)
             {
                 if (result.SkipRemainingRules) break;
 
@@ -104,9 +99,9 @@ namespace FlowValidate.Builders
                     {
                         var failure = validationFailure ?? new ValidationFailure(
                             propertyName: _propertyName,
-                            errorMessage: "Validation failed for property.",
+                            errorMessage: messageOverride?.ErrorMessage ?? "Validation failed for property.",
                             attemptedValue: value,
-                            errorCode: "DefaultRule"
+                            errorCode: messageOverride?.ErrorCode ?? "DefaultRule"
                         );
 
                         result.AddFailure(failure);
@@ -141,7 +136,8 @@ namespace FlowValidate.Builders
                           attemptedValue: null,
                           errorCode: "Required"
                       ),
-                  false
+                  false,
+                  null
               ));
 
             return this;
@@ -149,13 +145,13 @@ namespace FlowValidate.Builders
 
         public ValidationRuleBuilder<T, TProperty> Must(Func<TProperty, bool> rule)
         {
-            _rulesWithMessages.Add((rule, null, false));
+            _rulesWithMessages.Add((rule, null, false, null));
             return this;
         }
 
         public ValidationRuleBuilder<T, TProperty> MustAsync(Func<TProperty, Task<bool>> rule)
         {
-            _rulesWithMessages.Add((rule, null, false));
+            _rulesWithMessages.Add((rule, null, false, null));
             return this;
         }
 
@@ -358,7 +354,8 @@ namespace FlowValidate.Builders
                     }
                 }),
                 null,
-                true
+                true,
+                null
             ));
 
             return this;
@@ -394,7 +391,8 @@ namespace FlowValidate.Builders
                     }
                 }),
                 null,
-                true
+                true,
+                null
             ));
 
             return this;
@@ -425,7 +423,8 @@ namespace FlowValidate.Builders
                     }
                 }),
                 null,
-                true
+                true,
+                null
             ));
 
             return this;
@@ -453,7 +452,8 @@ namespace FlowValidate.Builders
                     }
                 }),
                 null,
-                true
+                true,
+                null
             ));
 
             return this;
@@ -485,7 +485,8 @@ namespace FlowValidate.Builders
                     }
                 }),
                 null,
-                true
+                true,
+                null
             ));
 
             return this;

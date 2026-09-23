@@ -284,6 +284,19 @@ Every `ValidationFailure.PropertyName` is non-null. A plain member access report
 | `RuleFor(x => x.Name.Trim())` | `x.Name.Trim()` |
 | `RuleFor(x => x)` | `x` |
 
+##### `WithMessage` Placement
+
+`WithMessage(...)` overrides the message and code of the rule that was just added, and must be chained
+directly after that rule. Calling it before any rule has been added on the current `RuleFor(...)` chain
+is a no-op: the call is silently ignored, and no rule is added or changed.
+
+```bash
+RuleFor(x => x.Name).WithMessage("This is ignored");
+```
+
+`ValidationFailure.AttemptedValue` on a `WithMessage`-annotated failure is always the real value that
+was validated, the same as when `WithMessage` is omitted.
+
 ##### Ranges and Comparisons for Any Ordered Type
 
 `IsInRange`, `IsGreaterThan` and `IsLessThan` work on any property type that implements `IComparable<T>`: `decimal`, `double`, `long`, `DateTime`, `DateOnly`, `string` and their nullable forms. Pass bounds of the property's own type; a bound of another type does not compile.
