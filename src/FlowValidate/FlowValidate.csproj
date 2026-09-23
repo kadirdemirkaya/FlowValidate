@@ -6,7 +6,7 @@
 		<Nullable>enable</Nullable>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageId>FlowValidate</PackageId>
-		<Version>1.2.0</Version>
+		<Version>1.3.0</Version>
 		<Authors>Kadir Demirkaya</Authors>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageProjectUrl>https://github.com/kadirdemirkaya/FlowValidate</PackageProjectUrl>
@@ -15,9 +15,9 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageTags>validation, model, request, library</PackageTags>
 		<Description>It is a lightweight validation library developed to validate request-based models. Now supports fully asynchronous validation rules (MustAsync, ShouldAsync) and synchronous validation helpers.</Description>
-		<AssemblyInformationalVersion>1.2.0</AssemblyInformationalVersion>
+		<AssemblyInformationalVersion>1.3.0</AssemblyInformationalVersion>
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-		<PackageReleaseNotes>Added support for asynchronous validation rules (MustAsync, ShouldAsync), synchronous validation bridge (Validate method), and nullability/compiler warning fixes.</PackageReleaseNotes>
+		<PackageReleaseNotes>Added net10.0 as a target framework and IComparable-based overloads for IsInRange, IsGreaterThan and IsLessThan alongside the existing int-based overloads. Fixed ValidationFailure.PropertyName falling back to null for non-simple-member property expressions and made FlowValidationService idempotent against repeated assembly registration. Removed dead internal should-error state that was never populated or read.</PackageReleaseNotes>
 	</PropertyGroup>
 
 	<ItemGroup>

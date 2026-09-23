@@ -5,9 +5,7 @@ All notable changes to this project are documented in this file, following the
 commit dates (UTC, `YYYY-MM-DD`). Entries whose version or date could not be
 determined with confidence are marked ❓ instead of being guessed.
 
-## [Unreleased]
-
-Merged additive hardening, not yet reflected in a `<Version>` bump.
+## [1.3.0] — 2026-09-23
 
 ### Fixed
 - Fall back to the property expression's text when a rule's property expression isn't a simple member access, instead of returning `null` for `ValidationFailure.PropertyName`.
@@ -46,6 +44,7 @@ Merged additive hardening, not yet reflected in a `<Version>` bump.
 
 - Initial published version.
 
-[Unreleased]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.1.6...HEAD
+[Unreleased]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.1.6...v1.2.0
 [1.1.6]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.1.5...v1.1.6
