@@ -100,14 +100,18 @@ namespace FlowValidate.Builders
 
                 if (!passed)
                 {
-                    var failure = validationFailure ?? new ValidationFailure(
-                        propertyName: _propertyName,
-                        errorMessage: "Validation failed for property.",
-                        attemptedValue: value,
-                        errorCode: "DefaultRule"
-                    );
+                    if (!isFromShould)
+                    {
+                        var failure = validationFailure ?? new ValidationFailure(
+                            propertyName: _propertyName,
+                            errorMessage: "Validation failed for property.",
+                            attemptedValue: value,
+                            errorCode: "DefaultRule"
+                        );
 
-                    result.AddFailure(failure);
+                        result.AddFailure(failure);
+                    }
+
                     result.SetIsValid(false);
                 }
             }

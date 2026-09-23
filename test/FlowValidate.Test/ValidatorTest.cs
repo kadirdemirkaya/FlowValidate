@@ -392,6 +392,22 @@ namespace FlowValidate.Test
             }
 
             [Fact]
+            public async Task ShouldAsync_WithErrorCallback_ProducesExactlyOneFailure_WhenExceptionThrown()
+            {
+                var model = new AsyncTestModel { Username = "error" };
+                var validator = new AsyncTestValidator(
+                    email => Task.FromResult(true),
+                    (username, addError) => throw new InvalidOperationException("DB error"),
+                    d => Task.CompletedTask
+                );
+
+                var result = await validator.ValidateAsync(model);
+
+                Assert.False(result.IsValid);
+                Assert.Single(result.Failures, f => f.PropertyName == "Username");
+            }
+
+            [Fact]
             public async Task ShouldAsync_WithDirectTask_ShouldPass_WhenNoExceptionThrown()
             {
                 var model = new AsyncTestModel { Description = "Valid description" };
@@ -423,6 +439,22 @@ namespace FlowValidate.Test
             }
 
             [Fact]
+            public async Task ShouldAsync_WithDirectTask_ProducesExactlyOneFailure_WhenExceptionThrown()
+            {
+                var model = new AsyncTestModel { Description = "Invalid description" };
+                var validator = new AsyncTestValidator(
+                    email => Task.FromResult(true),
+                    (u, addErr) => Task.CompletedTask,
+                    desc => throw new ArgumentException("Bad length")
+                );
+
+                var result = await validator.ValidateAsync(model);
+
+                Assert.False(result.IsValid);
+                Assert.Single(result.Failures, f => f.PropertyName == "Description");
+            }
+
+            [Fact]
             public void Validate_Synchronous_ShouldThrow_WhenAsyncRulesExist()
             {
                 var model = new AsyncTestModel { Email = "test@example.com" };
@@ -434,6 +466,96 @@ namespace FlowValidate.Test
 
                 var ex = Assert.Throws<InvalidOperationException>(() => validator.Validate(model));
                 Assert.Contains("contains asynchronous rules", ex.Message);
+            }
+        }
+
+        public class ShouldExceptionSingleFailureTests
+        {
+            private class ShouldExceptionTestModel
+            {
+                public string CallbackProp { get; set; } = string.Empty;
+                public string MessageProp { get; set; } = string.Empty;
+                public string ParamsProp { get; set; } = string.Empty;
+                public string MustProp { get; set; } = string.Empty;
+            }
+
+            private class ShouldExceptionTestValidator : BaseValidator<ShouldExceptionTestModel>
+            {
+                public ShouldExceptionTestValidator()
+                {
+                    RuleFor(x => x.CallbackProp)
+                        .Should((value, addError) => throw new InvalidOperationException("callback boom"));
+
+                    RuleFor(x => x.MessageProp)
+                        .Should(value => throw new InvalidOperationException("message boom"), "message rule failed");
+
+                    RuleFor(x => x.ParamsProp)
+                        .Should(value => throw new InvalidOperationException("params boom"), "params rule failed 1", "params rule failed 2");
+
+                    RuleFor(x => x.MustProp)
+                        .Must(value => false)
+                        .WithMessage("must rule failed");
+                }
+            }
+
+            [Fact]
+            public void Should_WithErrorCallback_ProducesExactlyOneFailure_WhenExceptionThrown()
+            {
+                var validator = new ShouldExceptionTestValidator();
+                var model = new ShouldExceptionTestModel();
+
+                var result = validator.Validate(model);
+
+                Assert.False(result.IsValid);
+                Assert.Single(result.Failures, f => f.PropertyName == "CallbackProp");
+            }
+
+            [Fact]
+            public void Should_WithMessage_ProducesExactlyOneFailure_WhenExceptionThrown()
+            {
+                var validator = new ShouldExceptionTestValidator();
+                var model = new ShouldExceptionTestModel();
+
+                var result = validator.Validate(model);
+
+                Assert.False(result.IsValid);
+                Assert.Single(result.Failures, f => f.PropertyName == "MessageProp");
+            }
+
+            [Fact]
+            public void Should_WithParamsMessages_ProducesExactlyOneFailure_WhenExceptionThrown()
+            {
+                var validator = new ShouldExceptionTestValidator();
+                var model = new ShouldExceptionTestModel();
+
+                var result = validator.Validate(model);
+
+                Assert.False(result.IsValid);
+                Assert.Single(result.Failures, f => f.PropertyName == "ParamsProp");
+            }
+
+            [Fact]
+            public void Must_WithMessage_StillProducesExactlyOneFailure_WhenRuleFails()
+            {
+                var validator = new ShouldExceptionTestValidator();
+                var model = new ShouldExceptionTestModel();
+
+                var result = validator.Validate(model);
+
+                Assert.False(result.IsValid);
+                Assert.Single(result.Failures, f => f.PropertyName == "MustProp" && f.ErrorMessage == "must rule failed");
+            }
+
+            [Fact]
+            public void Validate_ProducesExactlyFourFailures_OneForEachRule()
+            {
+                var validator = new ShouldExceptionTestValidator();
+                var model = new ShouldExceptionTestModel();
+
+                var result = validator.Validate(model);
+
+                Assert.False(result.IsValid);
+                Assert.Equal(4, result.Failures.Count);
             }
         }
 
