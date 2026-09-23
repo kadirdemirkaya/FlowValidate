@@ -559,6 +559,35 @@ namespace FlowValidate.Test
             }
         }
 
+        public class ShouldParamsSuccessTests
+        {
+            private class ShouldParamsSuccessTestModel
+            {
+                public string Name { get; set; } = string.Empty;
+            }
+
+            private class ShouldParamsSuccessTestValidator : BaseValidator<ShouldParamsSuccessTestModel>
+            {
+                public ShouldParamsSuccessTestValidator()
+                {
+                    RuleFor(x => x.Name)
+                        .Should(value => { }, "m1", "m2");
+                }
+            }
+
+            [Fact]
+            public void Should_WithParamsMessages_ProducesNoFailures_WhenActionDoesNotThrow()
+            {
+                var validator = new ShouldParamsSuccessTestValidator();
+                var model = new ShouldParamsSuccessTestModel { Name = "anything" };
+
+                var result = validator.Validate(model);
+
+                Assert.True(result.IsValid);
+                Assert.Empty(result.Failures);
+            }
+        }
+
         public class GetAllErrorsTests
         {
             private class ObsoleteTestModel
