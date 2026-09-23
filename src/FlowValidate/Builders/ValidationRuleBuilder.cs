@@ -469,19 +469,6 @@ namespace FlowValidate.Builders
                     {
                         action(value);
 
-                        if (errorMessages != null && errorMessages.Length > 0)
-                        {
-                            foreach (var msg in errorMessages)
-                            {
-                                result.AddFailure(new ValidationFailure(
-                                    propertyName: _propertyName,
-                                    errorMessage: msg,
-                                    attemptedValue: value,
-                                    errorCode: "ShouldRule"
-                                ));
-                            }
-                        }
-
                         return true;
                     }
                     catch
