@@ -311,4 +311,6 @@ For more examples and unit tests, check the [FlowValidate.Test](https://github.c
 - [API Examples](https://github.com/kadirdemirkaya/FlowValidate/tree/main/test/FlowValidate.Api)  
 - [Console Examples](https://github.com/kadirdemirkaya/FlowValidate/tree/main/test/FlowValidate.Console)
 
+Want to contribute? See [CONTRIBUTING.md](https://github.com/kadirdemirkaya/FlowValidate/blob/main/CONTRIBUTING.md).
+
 
