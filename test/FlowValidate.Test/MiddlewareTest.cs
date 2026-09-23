@@ -89,6 +89,24 @@ namespace FlowValidate.Test
             Assert.Equal((int)Severity.Error, failure.GetProperty("Severity").GetInt32());
         }
 
+        [Theory]
+        [InlineData(ValidationPipeline.CoreFlowValidationApp)]
+        [InlineData(ValidationPipeline.AspNetCoreUseFlowValidation)]
+        public async Task ShouldRuleException_ProducesExactlyOneFailure_InResponseBody(ValidationPipeline pipeline)
+        {
+            // Arrange
+            using var host = await StartHostAsync(pipeline);
+
+            // Act
+            using var response = await PostOrderAsync(host, "{\"name\":\"Pen\",\"quantity\":-1}");
+            using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+            // Assert
+            var failure = Assert.Single(body.RootElement.GetProperty("Errors").EnumerateArray());
+            Assert.Equal("Quantity", failure.GetProperty("PropertyName").GetString());
+            Assert.Equal("Quantity must not be negative.", failure.GetProperty("ErrorMessage").GetString());
+        }
+
         [Fact]
         public async Task CoreFlowValidationApp_InvalidBody_KeepsOkStatus()
         {
