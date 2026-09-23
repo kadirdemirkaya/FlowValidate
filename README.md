@@ -80,6 +80,12 @@ When a controller action's model fails validation, `UseFlowValidation()` respond
 
 `UseFlowValidation()` reads the request body for a single parameter of the matched action: the one marked `[FromBody]`, or — when no parameter is marked — the single complex-typed parameter that has no binding source attribute. Parameters bound from somewhere else (`[FromQuery]`, `[FromRoute]`, `[FromHeader]`, `[FromForm]`, `[FromServices]`) and simple types such as `int` or `string` are never deserialized from the body, so a mixed signature like `Create([FromBody] Order order, [FromQuery] OrderFilter filter)` validates `order` only. If the action has no parameter that binds from the body, the request passes through untouched and the body is not read at all. The body is buffered and rewound, so the model binder and later middleware still read it normally.
 
+##### Middleware limits
+
+- **Requires routing to have run first.** The middleware reads `HttpContext.GetRouteData()` to find the matched controller and action, so `app.UseFlowValidation()` must be registered after `app.UseRouting()` (or after endpoint routing has otherwise populated route values). If route data has no `controller`/`action` — request didn't match any route, or the middleware runs before routing — the request passes through untouched and no validation happens.
+- **No registered validator, no error.** If no `IBaseValidator<T>` is registered in DI for the resolved body-parameter type, the middleware also passes the request through untouched; it does not throw or report a missing validator.
+- **Body deserialization uses `Newtonsoft.Json`**, independent of whatever JSON stack the host application uses for model binding (`System.Text.Json` by default in ASP.NET Core). A type that binds correctly through the host's own JSON settings can still be deserialized differently by the middleware if the two serializers disagree (e.g. custom converters, naming policies).
+
 ##### Migrating from `FlowValidationApp()`
 
 `app.FlowValidationApp()` and `ModelValidationMiddleware` in the core package are obsolete. They keep working in this version and will be removed from the core package in the next major version. To migrate, install `FlowValidate.AspNetCore` and replace `app.FlowValidationApp()` with `app.UseFlowValidation()`. The error body is identical. One difference: the obsolete `FlowValidationApp()` answers invalid requests with `200 OK`, while `UseFlowValidation()` answers them with `400 Bad Request`. If a client checks for `200` together with the `Errors` body, update the client when you migrate.
@@ -153,6 +159,46 @@ public class UserValidator : BaseValidator<User>
     }
 }
 ```
+
+##### Builder Types Returned by `ValidateNested`, `ValidateCollection` and `ValidateRegistryRules`
+
+`ValidateNested`, `ValidateCollection` and `ValidateRegistryRules` return `ValidationNestedBuilder<T, TProperty>`, `ValidationCollectionBuilder<T, TCollection, TElement>` and `ValidationRegistryRules<T, TProperty>`. Today each of the three exposes only one public member, `Task<ValidationResult> ValidateAsync(T instance)`. `RuleFor` already wires the returned builder into the parent validator's rule pipeline, so `Validate(user)` / `ValidateAsync(user)` on `UserValidator` runs it automatically — you do not need to call `ValidateAsync` on the child builder yourself. It is there mainly so a test can exercise one composition step in isolation, for example `await new UserDetailsValidator().ValidateAsync(details)` directly, or `await new ValidationNestedBuilder<User, UserDetails>(u => u.Details, new UserDetailsValidator()).ValidateAsync(user)`.
+
+##### Conditional Rules with `RequiredIf`
+
+`RequiredIf(Func<TProperty, bool> condition)` gates the rules chained after it behind a check on the property's own value. When `condition(value)` is `false`, the rule fails immediately with `"Property is required."` (`errorCode: "Required"`) and every rule chained after `RequiredIf` on that property is skipped (`ValidationResult.SetSkipRemainingRules(true)`) — other properties' `RuleFor` chains are unaffected. When `condition(value)` is `true`, `RequiredIf` itself only fails if the value is `null` or, for `string`, blank; on success the remaining chained rules run as usual.
+
+```csharp
+public class PromoValidator : BaseValidator<Promo>
+{
+    public PromoValidator()
+    {
+        RuleFor(x => x.PromoCode)
+            .RequiredIf(code => code is not null && code.StartsWith("PROMO"))
+            .Length(8, 12)
+            .Contains("-");
+    }
+}
+```
+
+- `PromoCode = "ABC"` → condition is `false` → fails with `"Property is required."`; `Length`/`Contains` do not run.
+- `PromoCode = "PROMO12"` → condition is `true` → `Length`/`Contains` run and report their own failures.
+- `PromoCode = "PROMO-123"` → condition is `true` and the remaining rules pass → valid.
+
+##### `Severity`
+
+`ValidationFailure.Severity` is a `FlowValidate.Enums.Severity` value (`Info`, `Warning`, `Error`). Every failure produced by the built-in rules, `Should`/`ShouldAsync`, and `RequiredIf` defaults to `Severity.Error` — there is no fluent option on `RuleFor`/`WithMessage` to change it. To report a lower severity, construct the failure yourself, either with `ValidationResult.Failure(message, propertyName, attemptedValue, errorCode, severity)` or `new ValidationFailure(...)`, and merge it into the validator's result:
+
+```csharp
+var result = validator.Validate(user);
+
+result.Merge(ValidationResult.Failure(
+    "Backup email is missing.",
+    propertyName: "BackupEmail",
+    severity: Severity.Warning));
+```
+
+`Severity` is also part of the middleware's JSON error body (see the `Errors[].Severity` field above).
 
 #### Asynchronous Validation (Async Support)
 
