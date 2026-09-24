@@ -17,8 +17,14 @@ namespace FlowValidate.AspNetCore
         public FlowValidationMiddleware(RequestDelegate next, Assembly assembly, IServiceProvider serviceProvider)
         {
             _next = next;
-            _actionBodyParameters = new ActionBodyParameterCache(assembly);
             _serviceProvider = serviceProvider;
+
+            var registry = serviceProvider.GetService<FlowValidationAssemblyRegistry>();
+            var assemblies = registry is null
+                ? new[] { assembly }
+                : new[] { assembly }.Concat(registry.Assemblies).Distinct();
+
+            _actionBodyParameters = new ActionBodyParameterCache(assemblies);
         }
 
         public async Task InvokeAsync(HttpContext context)

@@ -13,9 +13,9 @@ namespace FlowValidate.AspNetCore
         private readonly Lazy<IReadOnlyDictionary<string, Type>> _controllers;
         private readonly ConcurrentDictionary<Type, Lazy<IReadOnlyDictionary<string, Type?>>> _actions = new();
 
-        public ActionBodyParameterCache(Assembly assembly)
+        public ActionBodyParameterCache(IEnumerable<Assembly> assemblies)
         {
-            _controllers = new Lazy<IReadOnlyDictionary<string, Type>>(() => IndexControllers(assembly));
+            _controllers = new Lazy<IReadOnlyDictionary<string, Type>>(() => IndexControllers(assemblies));
         }
 
         public bool TryGetBodyParameterType(
@@ -44,15 +44,18 @@ namespace FlowValidate.AspNetCore
             return true;
         }
 
-        private static IReadOnlyDictionary<string, Type> IndexControllers(Assembly assembly)
+        private static IReadOnlyDictionary<string, Type> IndexControllers(IEnumerable<Assembly> assemblies)
         {
             var controllers = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var type in assembly.GetTypes())
+            foreach (var assembly in assemblies.Distinct())
             {
-                if (type.Name.EndsWith(ControllerSuffix, StringComparison.OrdinalIgnoreCase))
+                foreach (var type in assembly.GetTypes())
                 {
-                    controllers.TryAdd(type.Name, type);
+                    if (type.Name.EndsWith(ControllerSuffix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        controllers.TryAdd(type.Name, type);
+                    }
                 }
             }
 
