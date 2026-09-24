@@ -9,6 +9,7 @@ determined with confidence are marked ❓ instead of being guessed.
 
 ### Added
 - `ValidationResult.ToDictionary()`: groups `Failures` by `PropertyName` into an `IDictionary<string, string[]>`, in insertion order, for building `ValidationProblemDetails`-style error bodies without a manual `GroupBy`.
+- `FlowValidationAssemblies` in `FlowValidate.AspNetCore`: registers additional assemblies for `UseFlowValidation()` to scan for controllers, for apps whose controllers are spread across more than one assembly. Merges across repeated calls and multiple assemblies per call; registering the same assembly twice does not scan it twice.
 
 ## [1.3.0] — 2026-09-23
 
