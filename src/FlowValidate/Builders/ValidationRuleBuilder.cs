@@ -17,6 +17,7 @@ namespace FlowValidate.Builders
         private readonly Func<T, TProperty> _propertyFunc;
         private readonly string _propertyName;
         private readonly List<(Delegate rule, ValidationFailure? validationFailure, bool isFromShould, (string ErrorMessage, string? ErrorCode)? messageOverride)> _rulesWithMessages = new();
+        private readonly List<Func<T, bool>> _chainConditions = new();
 
         public ValidationRuleBuilder(Expression<Func<T, TProperty>> property)
         {
@@ -104,13 +105,19 @@ namespace FlowValidate.Builders
 
         /// <summary>
         /// Runs every rule registered on this property, in registration order, stopping early if
-        /// a rule sets <see cref="ValidationResult.SkipRemainingRules"/>.
+        /// a rule sets <see cref="ValidationResult.SkipRemainingRules"/>. Returns an empty, valid
+        /// result without reading the property when a condition added by <see cref="When"/> or
+        /// <see cref="Unless"/> is not met.
         /// </summary>
         /// <param name="instance">The parent instance the property belongs to.</param>
         /// <returns>The aggregated <see cref="ValidationResult"/> for this property.</returns>
         public async Task<ValidationResult> ValidateAsync(T instance)
         {
             var result = new ValidationResult();
+
+            if (_chainConditions.Any(condition => !condition(instance)))
+                return result;
+
             var value = _propertyFunc(instance);
 
             foreach (var (rule, validationFailure, isFromShould, messageOverride) in _rulesWithMessages)
@@ -158,6 +165,72 @@ namespace FlowValidate.Builders
         }
 
         /// <summary>
+        /// Runs this property's whole rule chain only when <paramref name="condition"/> holds for the
+        /// root instance. When it does not hold, every rule on this chain is skipped and
+        /// <b>no failure is produced</b> — the property is not even read.
+        /// </summary>
+        /// <param name="condition">
+        /// Evaluated against the root instance being validated, so it can look at other properties,
+        /// e.g. <c>x =&gt; x.Country == "TR"</c>.
+        /// </param>
+        /// <returns>This builder, for chaining.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="condition"/> is <see langword="null"/>.</exception>
+        /// <remarks>
+        /// <para>
+        /// The condition guards the <b>entire</b> chain, not just the rule before it: placement inside
+        /// the chain does not matter, so <c>RuleFor(x =&gt; x.Vat).IsNotEmpty().When(x =&gt; x.IsCompany)</c>
+        /// and <c>RuleFor(x =&gt; x.Vat).When(x =&gt; x.IsCompany).IsNotEmpty()</c> behave identically.
+        /// Start a second <c>RuleFor</c> chain on the same property to give it a different condition.
+        /// </para>
+        /// <para>
+        /// Several <see cref="When"/> / <see cref="Unless"/> calls on the same chain are combined with
+        /// AND — the chain runs only if all of them are met. Asynchronous rules
+        /// (<see cref="MustAsync"/>, <c>ShouldAsync</c>) are gated the same way, but a skipped chain
+        /// still counts towards <see cref="HasAsyncRules"/>, so <see cref="BaseValidator{T}.Validate"/>
+        /// keeps throwing for a validator that declares async rules.
+        /// </para>
+        /// <para>
+        /// Unlike <see cref="RequiredIf"/>, which fails with <c>"Property is required."</c> when its
+        /// condition on the property's own value is not met, an unmet <see cref="When"/> condition is
+        /// silent. <see cref="RequiredIf"/> is unchanged and can still be used inside a conditional chain.
+        /// </para>
+        /// </remarks>
+        public ValidationRuleBuilder<T, TProperty> When(Func<T, bool> condition)
+        {
+            if (condition == null)
+                throw new ArgumentNullException(nameof(condition));
+
+            _chainConditions.Add(condition);
+
+            return this;
+        }
+
+        /// <summary>
+        /// The inverse of <see cref="When"/>: runs this property's whole rule chain only when
+        /// <paramref name="condition"/> does <b>not</b> hold for the root instance. When it holds,
+        /// every rule on this chain is skipped and no failure is produced.
+        /// </summary>
+        /// <param name="condition">
+        /// Evaluated against the root instance being validated, so it can look at other properties,
+        /// e.g. <c>x =&gt; x.IsDraft</c>.
+        /// </param>
+        /// <returns>This builder, for chaining.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="condition"/> is <see langword="null"/>.</exception>
+        /// <remarks>
+        /// Scoping, combination and async behaviour are identical to <see cref="When"/>:
+        /// <c>Unless(c)</c> is exactly <c>When(x =&gt; !c(x))</c>.
+        /// </remarks>
+        public ValidationRuleBuilder<T, TProperty> Unless(Func<T, bool> condition)
+        {
+            if (condition == null)
+                throw new ArgumentNullException(nameof(condition));
+
+            _chainConditions.Add(instance => !condition(instance));
+
+            return this;
+        }
+
+        /// <summary>
         /// Makes the property required when <paramref name="condition"/> evaluates to <see langword="false"/>
         /// for its current value: the rule fails with <c>"Property is required."</c> and any remaining
         /// rules for this property are skipped. When <paramref name="condition"/> is <see langword="true"/>,
@@ -165,6 +238,10 @@ namespace FlowValidate.Builders
         /// </summary>
         /// <param name="condition">Evaluated against the property's own value.</param>
         /// <returns>This builder, for chaining.</returns>
+        /// <remarks>
+        /// To skip rules silently instead of failing, or to branch on another property of the root
+        /// instance, use <see cref="When"/> or <see cref="Unless"/>.
+        /// </remarks>
         public ValidationRuleBuilder<T, TProperty> RequiredIf(Func<TProperty, bool> condition)
         {
             _rulesWithMessages.Add((
