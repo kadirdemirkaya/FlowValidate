@@ -7,11 +7,32 @@ determined with confidence are marked ❓ instead of being guessed.
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-09-24
+
 ### Added
 - `When(Func<T, bool>)` and `Unless(Func<T, bool>)` on the `RuleFor` chain: gate a property's whole rule chain behind a condition on the root instance, so it can branch on another property. An unmet condition skips the chain silently without reading the property and without producing a failure; async rules are gated the same way. `RequiredIf` is unchanged.
 - `ValidationCollectionBuilder.WithIndexedPropertyNames(string)`: opt-in indexed property names for collection failures (`Items[1].Name`), so clients can tell which element failed without parsing the message. Off by default; property names and the `"Element n: "` message prefix are unchanged unless the method is called.
 - `ValidationResult.ToDictionary()`: groups `Failures` by `PropertyName` into an `IDictionary<string, string[]>`, in insertion order, for building `ValidationProblemDetails`-style error bodies without a manual `GroupBy`.
 - `FlowValidationAssemblies` in `FlowValidate.AspNetCore`: registers additional assemblies for `UseFlowValidation()` to scan for controllers, for apps whose controllers are spread across more than one assembly. Merges across repeated calls and multiple assemblies per call; registering the same assembly twice does not scan it twice.
+- `net10.0` added as a target framework for `FlowValidate.AspNetCore`, matching the core package.
+- XML documentation on the public API surface (`BaseValidator<T>`, `ValidationResult`, `ValidationFailure`, all `ValidationRuleBuilder<T,TProperty>` rule methods, `FlowValidationService`, `UseFlowValidation`) for IntelliSense, plus SourceLink and `.snupkg` symbol packages for both packages.
+
+### Changed
+- Stopped the two `src` projects from packing on every build (`GeneratePackageOnBuild`), so `dotnet pack` no longer races the build output and fails with `NU5026`; `FlowValidate.Console` is now excluded from solution-level packing.
+- Pinned `Microsoft.Extensions.DependencyInjection.Abstractions` per target framework in the core package (`8.0.2` for net6.0/net7.0/net8.0, `9.0.20` for net9.0, `10.0.12` for net10.0) instead of one version across all TFMs, clearing the "doesn't support net6.0/net7.0" build warning.
+
+### Fixed
+- Stop `Should(Action<TProperty>, params string[])` from reporting its messages as failures when the action completes without throwing; messages are now only reported from the `catch` branch, as intended.
+- Stop `Should`/`ShouldAsync` from reporting a second, generic `[DefaultRule]` failure alongside the real exception message when the callback throws.
+- Fix `IsUnique()` always failing on value-typed collections (`List<int>`, `List<Guid>`) by checking against non-generic `IEnumerable` instead of the reference-type-only `IEnumerable<object>`; `List<string>` behavior and `null`-collection handling are unchanged.
+- Stop the ASP.NET Core middleware from returning `500` for malformed JSON, an empty body, a `"null"` body, or a type-mismatched field; unparsable bodies are now left to the host's own model binding (its usual `400`) instead of throwing out of the middleware.
+- Stop `IsGreaterThan(int)` and `IsLessThan(int)` from letting `OverflowException`, `FormatException`, and `InvalidCastException` escape `Convert.ToInt32` for out-of-range, non-numeric, or non-convertible values; unconvertible values are now reported as an ordinary rule failure. The existing decimal-truncation and `null`-as-zero behavior is unchanged; use the `IComparable` overloads for an exact comparison.
+- Fix `ValidateCollection` throwing `NullReferenceException` on a `null` collection; it is now skipped, consistent with `ValidateNested`.
+- Fix `Validate`/`ValidateAsync` throwing an unqualified `NullReferenceException` for a `null` root instance; they now throw `ArgumentNullException`.
+- Keep `AttemptedValue` on failures produced through `WithMessage(...)` instead of reporting it as `null`.
+
+### Security
+- Pin `System.Text.Encodings.Web` to `8.0.0` in the core package to close a transitive Critical advisory (`GHSA-ghhp-997w-qr28`) pulled in through `Microsoft.AspNetCore.Http 2.1.34`, affecting both published packages.
 
 ## [1.3.0] — 2026-09-23
 
@@ -56,7 +77,8 @@ determined with confidence are marked ❓ instead of being guessed.
 
 - Initial published version.
 
-[Unreleased]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.1.6...v1.2.0
 [1.1.6]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.1.5...v1.1.6
