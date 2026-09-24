@@ -5,7 +5,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<PackageId>FlowValidate.AspNetCore</PackageId>
-		<Version>1.3.0</Version>
+		<Version>1.4.0</Version>
 		<Authors>Kadir Demirkaya</Authors>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageProjectUrl>https://github.com/kadirdemirkaya/FlowValidate</PackageProjectUrl>
@@ -14,9 +14,9 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageTags>validation, model, request, middleware, aspnetcore</PackageTags>
 		<Description>ASP.NET Core request validation middleware for FlowValidate. Validates controller action models with the registered FlowValidate validators and answers invalid requests with 400 Bad Request and the validation failures.</Description>
-		<AssemblyInformationalVersion>1.3.0</AssemblyInformationalVersion>
+		<AssemblyInformationalVersion>1.4.0</AssemblyInformationalVersion>
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-		<PackageReleaseNotes>Cache controller/action to parameter-type lookups instead of reflecting over the whole assembly on every request, and validate only the body-bound action parameter instead of re-reading the same request body for every parameter.</PackageReleaseNotes>
+		<PackageReleaseNotes>Added net10.0 as a target framework, FlowValidationAssemblies to scan controllers spread across more than one assembly, and XML docs/SourceLink packages. Fixed malformed/empty/null request bodies returning 500 instead of being left to model binding.</PackageReleaseNotes>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<NoWarn>$(NoWarn);CS1591</NoWarn>
 		<IncludeSymbols>true</IncludeSymbols>
