@@ -394,6 +394,12 @@ namespace FlowValidate.Builders
         /// </summary>
         /// <param name="pattern">The regular expression the value must match.</param>
         /// <returns>This builder, for chaining.</returns>
+        /// <remarks>
+        /// This overload matches without a time limit. For values that come from untrusted input —
+        /// a request body validated by the middleware, for example — prefer
+        /// <see cref="MatchesRegex(string, TimeSpan)"/> or <see cref="MatchesRegex(Regex)"/>, so a
+        /// pattern that backtracks catastrophically cannot occupy the thread indefinitely.
+        /// </remarks>
         public ValidationRuleBuilder<T, TProperty> MatchesRegex(string pattern)
         {
             return Must(value =>
@@ -404,6 +410,87 @@ namespace FlowValidate.Builders
                 }
                 return false;
             });
+        }
+
+        /// <summary>
+        /// Fails unless the value is a string matching the given regular expression, giving up after
+        /// <paramref name="matchTimeout"/>.
+        /// </summary>
+        /// <param name="pattern">The regular expression the value must match.</param>
+        /// <param name="matchTimeout">
+        /// How long a single match attempt may run before it is abandoned. Use this on untrusted input:
+        /// it bounds the work a catastrophically backtracking pattern can do per value.
+        /// </param>
+        /// <returns>This builder, for chaining.</returns>
+        /// <exception cref="ArgumentException"><paramref name="pattern"/> is not a valid regular expression.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// <paramref name="matchTimeout"/> is negative, zero, or greater than approximately 24 days.
+        /// </exception>
+        /// <remarks>
+        /// The pattern is compiled once, when the rule is added, so an invalid pattern throws here
+        /// rather than during validation. A value that is <see langword="null"/> or not a string fails
+        /// exactly as it does with <see cref="MatchesRegex(string)"/>. A timed-out match does not throw
+        /// out of validation: see <see cref="MatchesRegex(Regex)"/> for how it is reported.
+        /// </remarks>
+        public ValidationRuleBuilder<T, TProperty> MatchesRegex(string pattern, TimeSpan matchTimeout)
+        {
+            return MatchesRegex(new Regex(pattern, RegexOptions.None, matchTimeout));
+        }
+
+        /// <summary>
+        /// Fails unless the value is a string matching <paramref name="regex"/>, which carries its own
+        /// options and match timeout.
+        /// </summary>
+        /// <param name="regex">
+        /// A pre-built regular expression. Construct it with a
+        /// <see cref="Regex(string, RegexOptions, TimeSpan)"/> timeout when the value being validated
+        /// comes from untrusted input; a shared <see langword="static readonly"/> instance also avoids
+        /// re-parsing the pattern.
+        /// </param>
+        /// <returns>This builder, for chaining.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="regex"/> is <see langword="null"/>.</exception>
+        /// <remarks>
+        /// A value that is <see langword="null"/> or not a string fails exactly as it does with
+        /// <see cref="MatchesRegex(string)"/>. When the match exceeds the regex's own timeout, the
+        /// <see cref="RegexMatchTimeoutException"/> is not allowed to escape: the property is reported
+        /// as invalid with the error code <c>RegexTimeout</c>, which distinguishes an abandoned match
+        /// from a value that genuinely did not match. That timeout failure keeps its own message even
+        /// when <see cref="WithMessage"/> is chained after the rule, since the two outcomes mean
+        /// different things; <see cref="WithMessage"/> still overrides the ordinary no-match failure.
+        /// </remarks>
+        public ValidationRuleBuilder<T, TProperty> MatchesRegex(Regex regex)
+        {
+            if (regex == null)
+                throw new ArgumentNullException(nameof(regex));
+
+            _rulesWithMessages.Add((
+                (Func<T, TProperty, ValidationResult, bool>)((instance, value, result) =>
+                {
+                    if (value is not string stringValue)
+                        return false;
+
+                    try
+                    {
+                        return regex.IsMatch(stringValue);
+                    }
+                    catch (RegexMatchTimeoutException)
+                    {
+                        result.AddFailure(new ValidationFailure(
+                            propertyName: _propertyName,
+                            errorMessage: $"Regular expression match timed out after {regex.MatchTimeout}.",
+                            attemptedValue: value,
+                            errorCode: "RegexTimeout"
+                        ));
+
+                        return true;
+                    }
+                }),
+                null,
+                false,
+                null
+            ));
+
+            return this;
         }
 
         /// <summary>

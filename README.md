@@ -25,6 +25,7 @@ Targets `net6.0`, `net7.0`, `net8.0`, `net9.0` and `net10.0`.
 - **Nested & Collection Support**: Automatically validates complex types and lists.  
 - **Custom Rules**: Use `Should`, `Must`, `IsNotEmpty`, `IsEqual` or define your own logic.  
 - **Typed Ranges**: `IsInRange`, `IsGreaterThan` and `IsLessThan` work on `decimal`, `double`, `long`, `DateTime` and any other `IComparable<T>` type, including nullable ones.  
+- **Bounded Regular Expressions**: `MatchesRegex` accepts a match timeout or a pre-built `Regex`, so a costly pattern on untrusted input is reported as a rule failure instead of occupying the thread.  
 - **Multi-error per Rule**: Single property rules can produce multiple error messages.  
 - **Reusable & Property-specific Validators**: Create modular validators like `UserNameValidator` and apply them to properties.  
 - **Async / Task-based Validation**: Rules can run asynchronously (`MustAsync` / `ShouldAsync`) with a synchronous validation fallback bridge.  
@@ -410,6 +411,30 @@ public class ProductValidator : BaseValidator<Product>
 - Integer bounds such as `IsInRange(1, 10)` still bind to the original `int` overloads, which behave exactly as before and only accept `int`-convertible values. On a `decimal`, `double` or `long` property, write the bounds with the matching literal suffix (`1m`, `1.0`, `1L`).
 - The `int` overloads of `IsGreaterThan` and `IsLessThan` round the value to an `int` before comparing, so on a `decimal` or `double` property they compare the rounded value, not the real one: `IsGreaterThan(5)` on `5.4m` fails and `IsLessThan(6)` on `5.6m` fails. This is why the matching literal suffix matters — `IsGreaterThan(5m)` and `IsLessThan(6m)` compare the value itself and both pass.
 - A value that cannot be converted to `int` at all — a `long` outside the `int` range, a non-numeric `string`, a `DateTime` — now fails the rule and is reported as a normal validation failure. Earlier versions let the conversion exception escape `Validate` / `ValidateAsync`.
+
+##### Regular Expressions with a Match Timeout
+
+`MatchesRegex(pattern)` matches without a time limit. **On untrusted input — anything coming from a request body — use the timed overloads instead**, so a pattern that backtracks catastrophically cannot occupy the thread while a single value is validated:
+
+```csharp
+public class SignUpValidator : BaseValidator<SignUp>
+{
+    private static readonly Regex UsernamePattern =
+        new Regex("^[a-z0-9_]{3,20}$", RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(100));
+
+    public SignUpValidator()
+    {
+        RuleFor(x => x.Phone).MatchesRegex(@"^\d{10}$", TimeSpan.FromMilliseconds(100));
+        RuleFor(x => x.Username).MatchesRegex(UsernamePattern);
+    }
+}
+```
+
+- `MatchesRegex(string pattern, TimeSpan matchTimeout)` compiles the pattern once, when the rule is added, and applies the timeout to every match attempt.
+- `MatchesRegex(Regex regex)` takes a pre-built expression that carries its own `RegexOptions` and its own `MatchTimeout` — useful for sharing one `static readonly Regex` across validators.
+- A timed-out match **does not throw**: the property is reported invalid with the error code `RegexTimeout` and a message naming the timeout, so it can be told apart from a value that simply did not match. `WithMessage` overrides the ordinary no-match failure; the timeout failure keeps its own message.
+- A `null` or non-string value fails exactly as it does with `MatchesRegex(pattern)`.
+- The existing `MatchesRegex(pattern)` overload is unchanged and still has no timeout.
 
 For more examples and unit tests, check the [FlowValidate.Test](https://github.com/kadirdemirkaya/FlowValidate/tree/main/test/FlowValidate.Test) project in the repository.  
 
