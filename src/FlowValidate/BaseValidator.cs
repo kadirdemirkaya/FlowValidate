@@ -77,6 +77,9 @@ namespace FlowValidate
 
         public async Task<ValidationResult> ValidateAsync(T instance)
         {
+            if (instance == null)
+                throw new ArgumentNullException(nameof(instance), "The instance to validate cannot be null.");
+
             var result = new ValidationResult();
 
             foreach (var rule in _rules)

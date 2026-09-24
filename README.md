@@ -165,6 +165,11 @@ public class UserValidator : BaseValidator<User>
 
 `ValidateNested`, `ValidateCollection` and `ValidateRegistryRules` return `ValidationNestedBuilder<T, TProperty>`, `ValidationCollectionBuilder<T, TCollection, TElement>` and `ValidationRegistryRules<T, TProperty>`. Today each of the three exposes only one public member, `Task<ValidationResult> ValidateAsync(T instance)`. `RuleFor` already wires the returned builder into the parent validator's rule pipeline, so `Validate(user)` / `ValidateAsync(user)` on `UserValidator` runs it automatically — you do not need to call `ValidateAsync` on the child builder yourself. It is there mainly so a test can exercise one composition step in isolation, for example `await new UserDetailsValidator().ValidateAsync(details)` directly, or `await new ValidationNestedBuilder<User, UserDetails>(u => u.Details, new UserDetailsValidator()).ValidateAsync(user)`.
 
+##### `null` Handling
+
+- **A `null` collection selected by `ValidateCollection` is skipped**, the same way `ValidateNested` already skips a `null` nested object — neither reports a failure and neither throws.
+- **A `null` root instance passed to `Validate` or `ValidateAsync` throws `ArgumentNullException`.** Both methods behave the same way, since `Validate` calls `ValidateAsync` internally.
+
 ##### Conditional Rules with `RequiredIf`
 
 `RequiredIf(Func<TProperty, bool> condition)` gates the rules chained after it behind a check on the property's own value. When `condition(value)` is `false`, the rule fails immediately with `"Property is required."` (`errorCode: "Required"`) and every rule chained after `RequiredIf` on that property is skipped (`ValidationResult.SetSkipRemainingRules(true)`) — other properties' `RuleFor` chains are unaffected. When `condition(value)` is `true`, `RequiredIf` itself only fails if the value is `null` or, for `string`, blank; on success the remaining chained rules run as usual.
