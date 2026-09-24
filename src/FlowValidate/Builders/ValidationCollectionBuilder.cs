@@ -23,6 +23,10 @@ namespace FlowValidate.Builders
         {
             var result = new ValidationResult();
             var collection = _collectionFunc(instance);
+
+            if (collection == null)
+                return result;
+
             int count = 1;
 
             foreach (var item in collection)

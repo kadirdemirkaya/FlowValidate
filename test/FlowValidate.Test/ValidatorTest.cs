@@ -655,5 +655,81 @@ namespace FlowValidate.Test
 #pragma warning restore CS0618
             }
         }
+
+        public class NullCollectionAndNullRootTests
+        {
+            private class ElementModel
+            {
+                public string Name { get; set; } = string.Empty;
+            }
+
+            private class ElementValidator : BaseValidator<ElementModel>
+            {
+                public ElementValidator()
+                {
+                    RuleFor(x => x.Name).IsNotEmpty();
+                }
+            }
+
+            private class ParentModel
+            {
+                public string Name { get; set; } = string.Empty;
+                public List<ElementModel>? Elements { get; set; }
+            }
+
+            private class ParentValidator : BaseValidator<ParentModel>
+            {
+                public ParentValidator()
+                {
+                    RuleFor(x => x.Name).IsNotEmpty();
+
+                    ValidateCollection(
+                        x => x.Elements!,
+                        new ElementValidator(),
+                        item => item
+                    );
+                }
+            }
+
+            [Fact]
+            public void Validate_WithNullCollection_SkipsCollectionRule_InsteadOfThrowing()
+            {
+                var validator = new ParentValidator();
+                var model = new ParentModel { Name = "ok", Elements = null };
+
+                var result = validator.Validate(model);
+
+                Assert.True(result.IsValid);
+                Assert.Empty(result.Failures);
+            }
+
+            [Fact]
+            public async Task ValidateAsync_WithNullCollection_SkipsCollectionRule_InsteadOfThrowing()
+            {
+                var validator = new ParentValidator();
+                var model = new ParentModel { Name = "ok", Elements = null };
+
+                var result = await validator.ValidateAsync(model);
+
+                Assert.True(result.IsValid);
+                Assert.Empty(result.Failures);
+            }
+
+            [Fact]
+            public void Validate_WithNullRootInstance_ThrowsArgumentNullException()
+            {
+                var validator = new ParentValidator();
+
+                Assert.Throws<ArgumentNullException>(() => validator.Validate(null!));
+            }
+
+            [Fact]
+            public async Task ValidateAsync_WithNullRootInstance_ThrowsArgumentNullException()
+            {
+                var validator = new ParentValidator();
+
+                await Assert.ThrowsAsync<ArgumentNullException>(() => validator.ValidateAsync(null!));
+            }
+        }
     }
 }
