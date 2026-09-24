@@ -25,6 +25,8 @@
 		<EmbedUntrackedSources>true</EmbedUntrackedSources>
 		<DebugType>portable</DebugType>
 		<SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+		<EnablePackageValidation>true</EnablePackageValidation>
+		<PackageValidationBaselineVersion>1.4.0</PackageValidationBaselineVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
