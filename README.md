@@ -207,6 +207,18 @@ result.Merge(ValidationResult.Failure(
 
 `Severity` is also part of the middleware's JSON error body (see the `Errors[].Severity` field above).
 
+##### Grouping Failures by Property with `ToDictionary`
+
+`ValidationResult.ToDictionary()` groups `Failures` by `PropertyName` into an `IDictionary<string, string[]>`, in insertion order — handy for building an ASP.NET `ValidationProblemDetails`-style error body without writing your own `GroupBy`:
+
+```csharp
+var result = validator.Validate(user);
+IDictionary<string, string[]> errors = result.ToDictionary();
+// { "Email": ["must not be empty", "must be a valid email"], "Age": ["must be positive"] }
+```
+
+A successful result returns an empty dictionary. A `null`/empty `PropertyName` is grouped under `"<root>"`, and failures of every `Severity` are included, not only `Severity.Error`.
+
 #### Asynchronous Validation (Async Support)
 
 FlowValidate fully supports asynchronous validation rules for operations that require external or asynchronous calls (e.g., database queries or external API requests). You can use `MustAsync` and `ShouldAsync` inside your validators.

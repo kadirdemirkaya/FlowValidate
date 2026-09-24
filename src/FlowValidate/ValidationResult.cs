@@ -141,6 +141,40 @@ namespace FlowValidate
                 return string.Join("; ", _failures.Select(f => f.ToString()));
             }
         }
+
+        /// <summary>
+        /// Groups <see cref="Failures"/> by <see cref="ValidationFailure.PropertyName"/>, in the same
+        /// order the failures were originally added (both the key order and, within each key, the
+        /// message order). Includes failures of every <see cref="Severity"/>, not only <see cref="Severity.Error"/>.
+        /// A <see langword="null"/> or empty <c>PropertyName</c> is grouped under the key
+        /// <c>"&lt;root&gt;"</c> (the same sentinel the <see cref="ValidationFailure"/> constructor uses
+        /// for a <see langword="null"/> name), so root-level and unnamed failures always end up together.
+        /// On a successful (valid) result, returns an empty dictionary.
+        /// </summary>
+        /// <returns>A dictionary mapping each property name to its error messages, in insertion order.</returns>
+        public IDictionary<string, string[]> ToDictionary()
+        {
+            lock (_sync)
+            {
+                var result = new Dictionary<string, string[]>();
+                foreach (var failure in _failures)
+                {
+                    var key = string.IsNullOrEmpty(failure.PropertyName) ? "<root>" : failure.PropertyName;
+                    if (result.TryGetValue(key, out var existing))
+                    {
+                        var updated = new string[existing.Length + 1];
+                        Array.Copy(existing, updated, existing.Length);
+                        updated[existing.Length] = failure.ErrorMessage;
+                        result[key] = updated;
+                    }
+                    else
+                    {
+                        result[key] = new[] { failure.ErrorMessage };
+                    }
+                }
+                return result;
+            }
+        }
     }
 
 }
