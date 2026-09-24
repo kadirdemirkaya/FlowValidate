@@ -221,6 +221,48 @@ public class PromoValidator : BaseValidator<Promo>
 - `PromoCode = "PROMO12"` → condition is `true` → `Length`/`Contains` run and report their own failures.
 - `PromoCode = "PROMO-123"` → condition is `true` and the remaining rules pass → valid.
 
+##### Conditional Chains with `When` and `Unless`
+
+`When(Func<T, bool> condition)` and `Unless(Func<T, bool> condition)` gate a `RuleFor` chain behind a condition on the **root instance**, so the condition can look at *another* property. When the condition is not met the chain's rules are skipped and **no failure is produced** — the property is not even read.
+
+```csharp
+public class CustomerValidator : BaseValidator<Customer>
+{
+    public CustomerValidator()
+    {
+        RuleFor(x => x.VatNumber)
+            .IsNotEmpty()
+            .WithMessage("VAT number is required for companies.", "VAT_REQUIRED")
+            .When(x => x.IsCompany);
+
+        RuleFor(x => x.Name)
+            .IsNotEmpty()
+            .Unless(x => x.IsDraft);
+    }
+}
+```
+
+- `IsCompany = false` → the `VatNumber` chain is skipped entirely, `Failures` stays empty.
+- `IsCompany = true, VatNumber = null` → fails with `"VAT number is required for companies."`.
+- `IsDraft = true` → the `Name` chain is skipped; `IsDraft = false` → it runs.
+
+**Scope:** the condition guards the **whole chain**, not just the rule written before it — `.IsNotEmpty().When(...)` and `.When(...).IsNotEmpty()` are equivalent. Start a second `RuleFor` chain on the same property when it needs a different condition. Several `When`/`Unless` calls on one chain are combined with AND.
+
+**Async:** `MustAsync` and `ShouldAsync` are gated the same way and are never awaited when the condition is not met. A skipped chain still counts towards `HasAsyncRules`, so `Validate()` keeps throwing for a validator that declares async rules — use `ValidateAsync()`.
+
+**Composition:** `When`/`Unless` work inside any validator, including the ones passed to `ValidateNested` and `ValidateCollection`; there the "root instance" is the nested object or the individual element being validated.
+
+###### `When`/`Unless` vs `RequiredIf`
+
+| | `When` / `Unless` | `RequiredIf` |
+|---|---|---|
+| Condition argument | the root instance (`T`) — can read other properties | the property's own value (`TProperty`) |
+| Condition not met | chain is skipped silently, no failure | fails with `"Property is required."` (`errorCode: "Required"`) and skips the remaining rules |
+| Condition met | the chain's rules run | the value must be non-`null` (non-blank for `string`), then the remaining rules run |
+| Scope | the whole `RuleFor` chain | the rules chained after it |
+
+Use `When`/`Unless` when a rule set only applies in some cases and its absence is not an error. Use `RequiredIf` when the property must be present and you want the failure. `RequiredIf` is unchanged and can be used inside a `When`-gated chain.
+
 ##### `Severity`
 
 `ValidationFailure.Severity` is a `FlowValidate.Enums.Severity` value (`Info`, `Warning`, `Error`). Every failure produced by the built-in rules, `Should`/`ShouldAsync`, and `RequiredIf` defaults to `Severity.Error` — there is no fluent option on `RuleFor`/`WithMessage` to change it. To report a lower severity, construct the failure yourself, either with `ValidationResult.Failure(message, propertyName, attemptedValue, errorCode, severity)` or `new ValidationFailure(...)`, and merge it into the validator's result:

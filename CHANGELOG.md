@@ -8,6 +8,7 @@ determined with confidence are marked ❓ instead of being guessed.
 ## [Unreleased]
 
 ### Added
+- `When(Func<T, bool>)` and `Unless(Func<T, bool>)` on the `RuleFor` chain: gate a property's whole rule chain behind a condition on the root instance, so it can branch on another property. An unmet condition skips the chain silently without reading the property and without producing a failure; async rules are gated the same way. `RequiredIf` is unchanged.
 - `ValidationCollectionBuilder.WithIndexedPropertyNames(string)`: opt-in indexed property names for collection failures (`Items[1].Name`), so clients can tell which element failed without parsing the message. Off by default; property names and the `"Element n: "` message prefix are unchanged unless the method is called.
 - `ValidationResult.ToDictionary()`: groups `Failures` by `PropertyName` into an `IDictionary<string, string[]>`, in insertion order, for building `ValidationProblemDetails`-style error bodies without a manual `GroupBy`.
 - `FlowValidationAssemblies` in `FlowValidate.AspNetCore`: registers additional assemblies for `UseFlowValidation()` to scan for controllers, for apps whose controllers are spread across more than one assembly. Merges across repeated calls and multiple assemblies per call; registering the same assembly twice does not scan it twice.
