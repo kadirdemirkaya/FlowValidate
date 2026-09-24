@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace FlowValidate.AspNetCore
@@ -33,7 +34,12 @@ namespace FlowValidate.AspNetCore
                 var requestBody = await new StreamReader(context.Request.Body).ReadToEndAsync();
                 context.Request.Body.Position = 0;
 
-                var model = JsonConvert.DeserializeObject(requestBody, modelType);
+                if (!TryDeserializeModel(requestBody, modelType, out var model))
+                {
+                    await _next(context);
+
+                    return;
+                }
 
                 using (var scope = _serviceProvider.CreateScope())
                 {
@@ -71,6 +77,30 @@ namespace FlowValidate.AspNetCore
                 }
             }
             await _next(context);
+        }
+
+        private static bool TryDeserializeModel(
+            string requestBody,
+            Type modelType,
+            [NotNullWhen(true)] out object? model)
+        {
+            model = null;
+
+            if (string.IsNullOrWhiteSpace(requestBody))
+            {
+                return false;
+            }
+
+            try
+            {
+                model = JsonConvert.DeserializeObject(requestBody, modelType);
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+
+            return model is not null;
         }
     }
 }
