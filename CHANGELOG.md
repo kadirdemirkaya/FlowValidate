@@ -7,6 +7,9 @@ determined with confidence are marked ❓ instead of being guessed.
 
 ## [Unreleased]
 
+### Added
+- `MatchesRegex(string pattern, TimeSpan matchTimeout)` and `MatchesRegex(Regex regex)`: opt-in bounded regular expression matching for values that come from untrusted input, so a catastrophically backtracking pattern cannot occupy the thread. A timed-out match is reported as a rule failure with the error code `RegexTimeout` instead of throwing `RegexMatchTimeoutException` out of validation. The existing `MatchesRegex(string)` overload keeps its behavior and still matches without a time limit.
+
 ## [1.4.0] — 2026-09-24
 
 ### Added
