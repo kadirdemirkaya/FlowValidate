@@ -7,6 +7,9 @@ determined with confidence are marked ❓ instead of being guessed.
 
 ## [Unreleased]
 
+### Added
+- `ValidationResult.ToDictionary()`: groups `Failures` by `PropertyName` into an `IDictionary<string, string[]>`, in insertion order, for building `ValidationProblemDetails`-style error bodies without a manual `GroupBy`.
+
 ## [1.3.0] — 2026-09-23
 
 ### Added
