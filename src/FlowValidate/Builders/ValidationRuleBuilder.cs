@@ -5,6 +5,12 @@ using System.Text.RegularExpressions;
 
 namespace FlowValidate.Builders
 {
+    /// <summary>
+    /// Fluent builder for attaching validation rules to a single property of <typeparamref name="T"/>,
+    /// returned by <see cref="BaseValidator{T}.RuleFor{TProperty}"/>.
+    /// </summary>
+    /// <typeparam name="T">The type owning the property being validated.</typeparam>
+    /// <typeparam name="TProperty">The type of the property being validated.</typeparam>
     public class ValidationRuleBuilder<T, TProperty>
     {
         private readonly Expression<Func<T, TProperty>> _property;
@@ -54,6 +60,13 @@ namespace FlowValidate.Builders
             }
         }
 
+        /// <summary>
+        /// Overrides the error message and error code of the most recently added rule.
+        /// Has no effect if no rule has been added yet.
+        /// </summary>
+        /// <param name="errorMessage">The message to use instead of the rule's default.</param>
+        /// <param name="errorCode">The error code to use instead of the rule's default.</param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> WithMessage(string errorMessage, string? errorCode = null)
         {
             if (_rulesWithMessages.Count == 0)
@@ -89,6 +102,12 @@ namespace FlowValidate.Builders
         }
 
 
+        /// <summary>
+        /// Runs every rule registered on this property, in registration order, stopping early if
+        /// a rule sets <see cref="ValidationResult.SkipRemainingRules"/>.
+        /// </summary>
+        /// <param name="instance">The parent instance the property belongs to.</param>
+        /// <returns>The aggregated <see cref="ValidationResult"/> for this property.</returns>
         public async Task<ValidationResult> ValidateAsync(T instance)
         {
             var result = new ValidationResult();
@@ -138,6 +157,14 @@ namespace FlowValidate.Builders
             return result;
         }
 
+        /// <summary>
+        /// Makes the property required when <paramref name="condition"/> evaluates to <see langword="false"/>
+        /// for its current value: the rule fails with <c>"Property is required."</c> and any remaining
+        /// rules for this property are skipped. When <paramref name="condition"/> is <see langword="true"/>,
+        /// the property is treated as required (non-null, non-blank for strings).
+        /// </summary>
+        /// <param name="condition">Evaluated against the property's own value.</param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> RequiredIf(Func<TProperty, bool> condition)
         {
             _rulesWithMessages.Add((
@@ -167,18 +194,34 @@ namespace FlowValidate.Builders
             return this;
         }
 
+        /// <summary>
+        /// Adds a custom synchronous rule: the property fails when <paramref name="rule"/> returns
+        /// <see langword="false"/>, using the default or overridden failure message.
+        /// </summary>
+        /// <param name="rule">Predicate evaluated against the property's value.</param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> Must(Func<TProperty, bool> rule)
         {
             _rulesWithMessages.Add((rule, null, false, null));
             return this;
         }
 
+        /// <summary>
+        /// Adds a custom asynchronous rule: the property fails when <paramref name="rule"/> resolves to
+        /// <see langword="false"/>. Makes this validator's <see cref="HasAsyncRules"/> return <see langword="true"/>.
+        /// </summary>
+        /// <param name="rule">Async predicate evaluated against the property's value.</param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> MustAsync(Func<TProperty, Task<bool>> rule)
         {
             _rulesWithMessages.Add((rule, null, false, null));
             return this;
         }
 
+        /// <summary>
+        /// Fails when the value is <see langword="null"/>, or is a blank/whitespace-only string.
+        /// </summary>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsNotEmpty()
         {
             return Must(value =>
@@ -190,16 +233,34 @@ namespace FlowValidate.Builders
             });
         }
 
+        /// <summary>
+        /// Fails unless the value equals <paramref name="expectedValue"/> using the default equality comparer.
+        /// </summary>
+        /// <param name="expectedValue">The value the property must equal.</param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsEqual(TProperty expectedValue)
         {
             return Must(value => EqualityComparer<TProperty>.Default.Equals(value, expectedValue));
         }
 
+        /// <summary>
+        /// Fails unless the value's string representation contains <paramref name="substring"/>.
+        /// </summary>
+        /// <param name="substring">The substring the value must contain.</param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> Contains(string substring)
         {
             return Must(value => value != null && value.ToString() is string str && str.Contains(substring));
         }
 
+        /// <summary>
+        /// Fails unless the value is an <see cref="int"/> within <c>[minValue, maxValue]</c> (inclusive).
+        /// Non-<see cref="int"/> values always fail. For other numeric types, see the
+        /// <see cref="IComparable{T}"/>-based overloads.
+        /// </summary>
+        /// <param name="minValue">The inclusive lower bound.</param>
+        /// <param name="maxValue">The inclusive upper bound.</param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsInRange(int minValue, int maxValue)
         {
             return Must(value =>
@@ -212,6 +273,10 @@ namespace FlowValidate.Builders
             });
         }
 
+        /// <summary>
+        /// Fails unless the value is a string matching a basic <c>local@domain.tld</c> email pattern.
+        /// </summary>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsEmail()
         {
             return Must(value =>
@@ -224,16 +289,34 @@ namespace FlowValidate.Builders
             });
         }
 
+        /// <summary>
+        /// Fails unless the value's string representation length is within
+        /// <c>[minLength, maxLength]</c> (inclusive).
+        /// </summary>
+        /// <param name="minLength">The inclusive minimum length.</param>
+        /// <param name="maxLength">The inclusive maximum length.</param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> Length(int minLength, int maxLength)
         {
             return Must(value => value != null && value.ToString() is string str && str.Length >= minLength && str.Length <= maxLength);
         }
 
+        /// <summary>
+        /// Fails unless the value converts to <see cref="int"/> and is strictly greater than <paramref name="minValue"/>.
+        /// A value that cannot be converted to <see cref="int"/> fails as well.
+        /// </summary>
+        /// <param name="minValue">The exclusive lower bound.</param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsGreaterThan(int minValue)
         {
             return Must(value => TryConvertToInt32(value, out var intValue) && intValue > minValue);
         }
 
+        /// <summary>
+        /// Fails unless the value is a string matching the given regular expression.
+        /// </summary>
+        /// <param name="pattern">The regular expression the value must match.</param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> MatchesRegex(string pattern)
         {
             return Must(value =>
@@ -246,6 +329,10 @@ namespace FlowValidate.Builders
             });
         }
 
+        /// <summary>
+        /// Fails unless the value is a <see cref="DateTime"/> strictly later than <see cref="DateTime.Now"/>.
+        /// </summary>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsDateInFuture()
         {
             return Must(value =>
@@ -258,6 +345,11 @@ namespace FlowValidate.Builders
             });
         }
 
+        /// <summary>
+        /// Fails unless the value is a non-string <see cref="System.Collections.IEnumerable"/> whose
+        /// items are all distinct. Non-collection values always fail.
+        /// </summary>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsUnique()
         {
             return Must(value =>
@@ -271,11 +363,21 @@ namespace FlowValidate.Builders
             });
         }
 
+        /// <summary>
+        /// Fails unless the value converts to <see cref="int"/> and is strictly less than <paramref name="maxValue"/>.
+        /// A value that cannot be converted to <see cref="int"/> fails as well.
+        /// </summary>
+        /// <param name="maxValue">The exclusive upper bound.</param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsLessThan(int maxValue)
         {
             return Must(value => TryConvertToInt32(value, out var intValue) && intValue < maxValue);
         }
 
+        /// <summary>
+        /// Fails unless the value is a <see cref="DateTime"/> strictly earlier than <see cref="DateTime.Now"/>.
+        /// </summary>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsDateInPast()
         {
             return Must(value =>
@@ -288,6 +390,11 @@ namespace FlowValidate.Builders
             });
         }
 
+        /// <summary>
+        /// Fails unless the value is a <see cref="DateTime"/> strictly later than <see cref="DateTime.Now"/>.
+        /// Equivalent to <see cref="IsDateInFuture"/>.
+        /// </summary>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsInFuture()
         {
             return Must(value =>
@@ -300,6 +407,13 @@ namespace FlowValidate.Builders
             });
         }
 
+        /// <summary>
+        /// Fails when the value's string representation contains the same character repeated
+        /// <paramref name="maxRepeatLength"/> or more times in a row. A <see langword="null"/> value
+        /// or one that stringifies to <see langword="null"/> passes.
+        /// </summary>
+        /// <param name="maxRepeatLength">The repeat run length that triggers failure. Defaults to 3.</param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> NoConsecutiveRepeats(int maxRepeatLength = 3)
         {
             return Must(value =>
@@ -328,6 +442,11 @@ namespace FlowValidate.Builders
             });
         }
 
+        /// <summary>
+        /// Fails unless the value's string representation reads the same forwards and backwards
+        /// (case-insensitive). A <see langword="null"/> value or one that stringifies to <see langword="null"/> passes.
+        /// </summary>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsPalindrome()
         {
             return Must(value =>
@@ -349,6 +468,15 @@ namespace FlowValidate.Builders
             });
         }
 
+        /// <summary>
+        /// Adds a custom rule that can raise zero, one, or several errors via the callback passed to
+        /// <paramref name="action"/>, instead of returning a single pass/fail. An unhandled exception
+        /// inside <paramref name="action"/> is recorded as a failure.
+        /// </summary>
+        /// <param name="action">
+        /// Receives the property's value and an <c>error</c> callback that records one failure per call.
+        /// </param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> Should(Action<TProperty, Action<string>> action)
         {
             _rulesWithMessages.Add((
@@ -386,6 +514,15 @@ namespace FlowValidate.Builders
             return this;
         }
 
+        /// <summary>
+        /// Asynchronous counterpart of <see cref="Should(Action{TProperty, Action{string}})"/>: can raise
+        /// zero, one, or several errors via the callback passed to <paramref name="action"/>. Makes this
+        /// validator's <see cref="HasAsyncRules"/> return <see langword="true"/>.
+        /// </summary>
+        /// <param name="action">
+        /// Receives the property's value and an <c>error</c> callback that records one failure per call.
+        /// </param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> ShouldAsync(Func<TProperty, Action<string>, Task> action)
         {
             _rulesWithMessages.Add((
@@ -423,9 +560,19 @@ namespace FlowValidate.Builders
             return this;
         }
 
+        /// <summary>
+        /// Always returns an empty string; this method never accumulated any errors.
+        /// </summary>
+        /// <returns>An empty string.</returns>
         [Obsolete("This method never accumulated any errors and always returns an empty string. Use ValidationResult.Failures instead.")]
         public string GetAllErrors() => string.Empty;
 
+        /// <summary>
+        /// Adds a custom rule that runs <paramref name="action"/> and records a single failure if it throws.
+        /// </summary>
+        /// <param name="action">Invoked with the property's value; an exception is treated as failure.</param>
+        /// <param name="errorMessage">The failure message used when <paramref name="action"/> throws. Defaults to <c>"Custom validation failed !"</c>.</param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> Should(Action<TProperty> action, string? errorMessage = null)
         {
             _rulesWithMessages.Add((
@@ -455,6 +602,14 @@ namespace FlowValidate.Builders
             return this;
         }
 
+        /// <summary>
+        /// Asynchronous counterpart of <see cref="Should(Action{TProperty}, string)"/>: runs
+        /// <paramref name="action"/> and records a single failure if it throws. Makes this validator's
+        /// <see cref="HasAsyncRules"/> return <see langword="true"/>.
+        /// </summary>
+        /// <param name="action">Invoked with the property's value; an exception is treated as failure.</param>
+        /// <param name="errorMessage">The failure message used when <paramref name="action"/> throws. Defaults to <c>"Custom validation failed !"</c>.</param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> ShouldAsync(Func<TProperty, Task> action, string? errorMessage = null)
         {
             _rulesWithMessages.Add((
@@ -485,6 +640,13 @@ namespace FlowValidate.Builders
         }
 
 
+        /// <summary>
+        /// Overload of <see cref="Should(Action{TProperty}, string)"/> that joins multiple failure
+        /// messages with " &amp; " when <paramref name="action"/> throws.
+        /// </summary>
+        /// <param name="action">Invoked with the property's value; an exception is treated as failure.</param>
+        /// <param name="errorMessages">The messages joined into the failure text. Defaults to <c>"Custom validation failed !"</c> when empty.</param>
+        /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> Should(Action<TProperty> action, params string[] errorMessages)
         {
             _rulesWithMessages.Add((
@@ -517,6 +679,10 @@ namespace FlowValidate.Builders
             return this;
         }
 
+        /// <summary>
+        /// <see langword="true"/> if any rule added via <see cref="MustAsync"/> or a <c>ShouldAsync</c>
+        /// overload has been registered on this property.
+        /// </summary>
         public bool HasAsyncRules => _rulesWithMessages.Any(r =>
             r.rule is Func<TProperty, Task<bool>> ||
             r.rule is Func<T, TProperty, ValidationResult, Task<bool>>);
