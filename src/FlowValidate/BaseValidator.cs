@@ -78,7 +78,11 @@ namespace FlowValidate
         /// <param name="collectionFunc">Selects the collection from the parent instance.</param>
         /// <param name="elementValidator">The validator applied to each selected element.</param>
         /// <param name="itemSelector">Projects each collection item into the type the validator expects.</param>
-        /// <returns>A builder wrapping the collection validation rule.</returns>
+        /// <returns>
+        /// A builder wrapping the collection validation rule. Call
+        /// <see cref="ValidationCollectionBuilder{T, TCollection, TElement}.WithIndexedPropertyNames(string)"/>
+        /// on it to report each failure under an indexed property name such as <c>Items[1].Name</c>.
+        /// </returns>
         public ValidationCollectionBuilder<T, TCollection, TElement> ValidateCollection<TCollection, TElement>(
             Func<T, IEnumerable<TCollection>> collectionFunc,
             BaseValidator<TElement> elementValidator,

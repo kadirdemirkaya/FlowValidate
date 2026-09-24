@@ -173,7 +173,27 @@ public class UserValidator : BaseValidator<User>
 
 ##### Builder Types Returned by `ValidateNested`, `ValidateCollection` and `ValidateRegistryRules`
 
-`ValidateNested`, `ValidateCollection` and `ValidateRegistryRules` return `ValidationNestedBuilder<T, TProperty>`, `ValidationCollectionBuilder<T, TCollection, TElement>` and `ValidationRegistryRules<T, TProperty>`. Today each of the three exposes only one public member, `Task<ValidationResult> ValidateAsync(T instance)`. `RuleFor` already wires the returned builder into the parent validator's rule pipeline, so `Validate(user)` / `ValidateAsync(user)` on `UserValidator` runs it automatically — you do not need to call `ValidateAsync` on the child builder yourself. It is there mainly so a test can exercise one composition step in isolation, for example `await new UserDetailsValidator().ValidateAsync(details)` directly, or `await new ValidationNestedBuilder<User, UserDetails>(u => u.Details, new UserDetailsValidator()).ValidateAsync(user)`.
+`ValidateNested`, `ValidateCollection` and `ValidateRegistryRules` return `ValidationNestedBuilder<T, TProperty>`, `ValidationCollectionBuilder<T, TCollection, TElement>` and `ValidationRegistryRules<T, TProperty>`. All three expose `Task<ValidationResult> ValidateAsync(T instance)`; `ValidationCollectionBuilder<T, TCollection, TElement>` additionally exposes `WithIndexedPropertyNames(string collectionName)` (see below). `RuleFor` already wires the returned builder into the parent validator's rule pipeline, so `Validate(user)` / `ValidateAsync(user)` on `UserValidator` runs it automatically — you do not need to call `ValidateAsync` on the child builder yourself. It is there mainly so a test can exercise one composition step in isolation, for example `await new UserDetailsValidator().ValidateAsync(details)` directly, or `await new ValidationNestedBuilder<User, UserDetails>(u => u.Details, new UserDetailsValidator()).ValidateAsync(user)`.
+
+##### Indexed Property Names for Collection Failures
+
+By default a failure coming from a collection element carries the element validator's own property name (`Name`) and only the error message tells you which element failed (`"Element 2: ..."`). Chain `WithIndexedPropertyNames("Baskets")` on the builder returned by `ValidateCollection` to also get the index into `ValidationFailure.PropertyName`, so a client can map the failure to an element programmatically:
+
+```csharp
+ValidateCollection(u => u.Baskets, new UserBasketValidator(), item => item)
+    .WithIndexedPropertyNames("Baskets");
+```
+
+```
+PropertyName : Baskets[1].Name
+ErrorMessage : Element 2: Name is required.
+```
+
+- The index in `PropertyName` is **zero-based**; the `"Element n: "` message prefix stays **one-based** and byte-for-byte unchanged, as does every other part of the failure (`AttemptedValue`, `ErrorCode`, `Severity`).
+- The option is **opt-in per collection**. Without the call, property names and messages stay exactly as they were.
+- The collection name is passed explicitly because `ValidateCollection` takes a delegate, not an expression, so the name cannot be inferred from the selector. An empty or whitespace name throws `ArgumentException`.
+- Paths compose: a collection inside a collection that both opt in yields `Orders[0].Lines[2].Qty`, and a nested validator inside an opted-in collection yields `Orders[1].Street`.
+- The resulting names go straight into `ValidationResult.ToDictionary()` keys and into the `400 Bad Request` body written by `app.UseFlowValidation()`.
 
 ##### `null` Handling
 
