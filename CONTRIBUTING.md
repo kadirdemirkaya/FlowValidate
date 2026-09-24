@@ -20,6 +20,15 @@ dotnet test test/FlowValidate.Test/FlowValidate.Test.csproj
 Existing tests are the compatibility contract: they must stay green and their assertions must not be
 changed. Add new tests for new behaviour or to cover a fixed defect.
 
+## Producing packages / release order
+
+```
+dotnet pack FlowValidate.sln -c Release -o <dir>
+```
+
+This produces exactly two packages: `FlowValidate` and `FlowValidate.AspNetCore`. When publishing,
+push them in dependency order — `FlowValidate` first, then `FlowValidate.AspNetCore`.
+
 ## More
 
 See the full development guide at
