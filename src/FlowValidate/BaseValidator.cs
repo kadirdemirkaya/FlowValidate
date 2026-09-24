@@ -10,7 +10,7 @@ namespace FlowValidate
     /// type and register rules in the constructor using <see cref="RuleFor{TProperty}"/>,
     /// <see cref="ValidateNested{TProperty}"/>, <see cref="ValidateCollection{TCollection, TElement}"/>
     /// or <see cref="ValidateRegistryRules{TProperty}"/>, then call <see cref="Validate"/> or
-    /// <see cref="ValidateAsync"/> to run them.
+    /// <see cref="ValidateAsync(T)"/> to run them.
     /// </summary>
     /// <typeparam name="T">The type of the instance being validated.</typeparam>
     public abstract class BaseValidator<T> : IBaseValidator<T>
@@ -18,10 +18,29 @@ namespace FlowValidate
         protected readonly List<Func<T, Task<ValidationResult>>> _rules = new();
         protected readonly List<Func<bool>> _asyncCheckers = new();
 
+        private sealed class CancellableRule
+        {
+            private readonly Func<T, CancellationToken, Task<ValidationResult>> _rule;
+
+            public CancellableRule(Func<T, CancellationToken, Task<ValidationResult>> rule)
+            {
+                _rule = rule;
+            }
+
+            public Task<ValidationResult> RunAsync(T instance, CancellationToken cancellationToken) => _rule(instance, cancellationToken);
+
+            public Task<ValidationResult> RunAsync(T instance) => _rule(instance, CancellationToken.None);
+        }
+
+        private void AddRule(Func<T, CancellationToken, Task<ValidationResult>> rule)
+        {
+            _rules.Add(new CancellableRule(rule).RunAsync);
+        }
+
         /// <summary>
         /// <see langword="true"/> if any registered rule (including rules of nested, collection or
         /// registry validators) is asynchronous. When <see langword="true"/>, <see cref="Validate"/>
-        /// throws and <see cref="ValidateAsync"/> must be used instead.
+        /// throws and <see cref="ValidateAsync(T)"/> must be used instead.
         /// </summary>
         public bool HasAsyncRules => _asyncCheckers.Any(check => check());
 
@@ -34,7 +53,7 @@ namespace FlowValidate
         public ValidationRuleBuilder<T, TProperty> RuleFor<TProperty>(Expression<Func<T, TProperty>> property)
         {
             var builder = new ValidationRuleBuilder<T, TProperty>(property);
-            _rules.Add(async instance => await builder.ValidateAsync(instance));
+            AddRule(async (instance, cancellationToken) => await builder.ValidateAsync(instance, cancellationToken));
             _asyncCheckers.Add(() => builder.HasAsyncRules);
             return builder;
         }
@@ -53,14 +72,14 @@ namespace FlowValidate
         {
             var builder = new ValidationNestedBuilder<T, TProperty>(propertyFunc, validator);
 
-            _rules.Add(async instance =>
+            AddRule(async (instance, cancellationToken) =>
             {
                 var nestedObj = propertyFunc(instance);
 
                 if (nestedObj == null)
                     return new ValidationResult();
 
-                return await builder.ValidateAsync(instance);
+                return await builder.ValidateAsync(instance, cancellationToken);
             });
 
             _asyncCheckers.Add(() => validator.HasAsyncRules);
@@ -90,7 +109,7 @@ namespace FlowValidate
         {
             var builder = new ValidationCollectionBuilder<T, TCollection, TElement>(collectionFunc, elementValidator, itemSelector);
 
-            _rules.Add(async instance => await builder.ValidateAsync(instance));
+            AddRule(async (instance, cancellationToken) => await builder.ValidateAsync(instance, cancellationToken));
             _asyncCheckers.Add(() => elementValidator.HasAsyncRules);
 
             return builder;
@@ -110,7 +129,7 @@ namespace FlowValidate
         {
             var builder = new ValidationRegistryRules<T, TProperty>(propertyFunc, validator);
 
-            _rules.Add(async instance => await builder.ValidateAsync(instance));
+            AddRule(async (instance, cancellationToken) => await builder.ValidateAsync(instance, cancellationToken));
             _asyncCheckers.Add(() => validator.HasAsyncRules);
 
             return builder;
@@ -122,7 +141,7 @@ namespace FlowValidate
         /// <param name="instance">The instance to validate. Must not be <see langword="null"/>.</param>
         /// <returns>The aggregated <see cref="ValidationResult"/> across all registered rules.</returns>
         /// <exception cref="InvalidOperationException">
-        /// <see cref="HasAsyncRules"/> is <see langword="true"/>; use <see cref="ValidateAsync"/> instead.
+        /// <see cref="HasAsyncRules"/> is <see langword="true"/>; use <see cref="ValidateAsync(T)"/> instead.
         /// </exception>
         public ValidationResult Validate(T instance)
         {
@@ -139,19 +158,47 @@ namespace FlowValidate
         /// <param name="instance">The instance to validate. Must not be <see langword="null"/>.</param>
         /// <returns>The aggregated <see cref="ValidationResult"/> across all registered rules.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="instance"/> is <see langword="null"/>.</exception>
-        public async Task<ValidationResult> ValidateAsync(T instance)
+        public Task<ValidationResult> ValidateAsync(T instance) => ValidateAsync(instance, CancellationToken.None);
+
+        /// <summary>
+        /// Runs all registered rules asynchronously, passing <paramref name="cancellationToken"/> to the
+        /// rules that accept one, and returns the aggregated result.
+        /// </summary>
+        /// <param name="instance">The instance to validate. Must not be <see langword="null"/>.</param>
+        /// <param name="cancellationToken">
+        /// Token observed between rules and inside every rule registered through a <c>MustAsync</c> or
+        /// <c>ShouldAsync</c> overload that takes one. Passing <see cref="CancellationToken.None"/> is
+        /// exactly the same as calling <see cref="ValidateAsync(T)"/>.
+        /// </param>
+        /// <returns>The aggregated <see cref="ValidationResult"/> across all registered rules.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="instance"/> is <see langword="null"/>.</exception>
+        /// <exception cref="OperationCanceledException">
+        /// <paramref name="cancellationToken"/> was cancelled. Cancellation is <b>not</b> turned into a
+        /// validation failure: an aborted run has no verdict about the instance, so reporting one would
+        /// tell the caller the instance is invalid when it may well be valid. The exception leaves
+        /// <c>ValidateAsync</c> and the partial <see cref="ValidationResult"/> is discarded.
+        /// </exception>
+        public async Task<ValidationResult> ValidateAsync(T instance, CancellationToken cancellationToken)
         {
             if (instance == null)
                 throw new ArgumentNullException(nameof(instance), "The instance to validate cannot be null.");
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             var result = new ValidationResult();
 
             foreach (var rule in _rules)
             {
-                var ruleResult = await rule(instance);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var ruleResult = rule.Target is CancellableRule cancellableRule
+                    ? await cancellableRule.RunAsync(instance, cancellationToken)
+                    : await rule(instance);
 
                 if (!ruleResult.IsValid) result.Merge(ruleResult);
             }
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             return result;
         }

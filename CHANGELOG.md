@@ -8,6 +8,9 @@ determined with confidence are marked ❓ instead of being guessed.
 ## [Unreleased]
 
 ### Added
+- `CancellationToken` support: `ValidateAsync(T instance, CancellationToken cancellationToken)` on `BaseValidator<T>` and on `IBaseValidator<T>` (as a default interface method, so hand-written implementations keep compiling), plus `MustAsync(Func<TProperty, CancellationToken, Task<bool>>)`, `ShouldAsync(Func<TProperty, Action<string>, CancellationToken, Task>)` and `ShouldAsync(Func<TProperty, CancellationToken, Task>, string?)`. The token reaches nested, collection and registry validators and is observed between rules. A cancelled token throws `OperationCanceledException` out of `ValidateAsync` instead of being reported as a validation failure. The existing signatures and their behavior are unchanged; validating without a token is exactly the same as passing `CancellationToken.None`.
+- `UseFlowValidation()` now passes `HttpContext.RequestAborted` to the validator, so validation stops when the client disconnects. The obsolete `FlowValidationApp()` middleware stays frozen and validates without a token.
+- Reflection note: `ValidateAsync` can no longer be resolved by name alone (`typeof(IBaseValidator<T>).GetMethod("ValidateAsync")` throws `AmbiguousMatchException`); both middlewares now select the overload by signature, and consumer code that reflects over the method must do the same.
 - `MatchesRegex(string pattern, TimeSpan matchTimeout)` and `MatchesRegex(Regex regex)`: opt-in bounded regular expression matching for values that come from untrusted input, so a catastrophically backtracking pattern cannot occupy the thread. A timed-out match is reported as a rule failure with the error code `RegexTimeout` instead of throwing `RegexMatchTimeoutException` out of validation. The existing `MatchesRegex(string)` overload keeps its behavior and still matches without a time limit.
 
 ## [1.4.0] — 2026-09-24

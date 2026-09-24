@@ -54,9 +54,14 @@ namespace FlowValidate.AspNetCore
 
                     if (validator != null)
                     {
-                        var method = validatorType.GetMethod("ValidateAsync");
+                        var method = validatorType.GetMethod("ValidateAsync", new[] { modelType, typeof(CancellationToken) })
+                            ?? validatorType.GetMethod("ValidateAsync", new[] { modelType });
 
-                        if (method is not null && method.Invoke(validator, new[] { model }) is Task<ValidationResult> task)
+                        var arguments = method?.GetParameters().Length == 2
+                            ? new[] { model, context.RequestAborted }
+                            : new[] { model };
+
+                        if (method is not null && method.Invoke(validator, arguments) is Task<ValidationResult> task)
                         {
                             var validationResult = await task;
 

@@ -12,12 +12,14 @@
         }
 
 
-        public async Task<ValidationResult> ValidateAsync(T instance)
+        public Task<ValidationResult> ValidateAsync(T instance) => ValidateAsync(instance, CancellationToken.None);
+
+        public async Task<ValidationResult> ValidateAsync(T instance, CancellationToken cancellationToken)
         {
             var result = new ValidationResult();
             var value = _property(instance);
 
-            var baseValidationResult = await _validator.ValidateAsync(value);
+            var baseValidationResult = await _validator.ValidateAsync(value, cancellationToken);
 
             if (!baseValidationResult.IsValid) result.Merge(baseValidationResult);
 
