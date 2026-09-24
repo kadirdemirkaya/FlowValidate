@@ -238,9 +238,10 @@ namespace FlowValidate.Builders
         {
             return Must(value =>
             {
-                if (value is IEnumerable<object> collection)
+                if (value is not string && value is System.Collections.IEnumerable collection)
                 {
-                    return collection.Distinct().Count() == collection.Count();
+                    var items = collection.Cast<object>().ToList();
+                    return items.Distinct().Count() == items.Count;
                 }
                 return false;
             });
