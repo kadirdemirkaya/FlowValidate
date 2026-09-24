@@ -5,18 +5,24 @@ All notable changes to this project are documented in this file, following the
 commit dates (UTC, `YYYY-MM-DD`). Entries whose version or date could not be
 determined with confidence are marked ❓ instead of being guessed.
 
+## [Unreleased]
+
 ## [1.3.0] — 2026-09-23
+
+### Added
+- New `FlowValidate.AspNetCore` package: `app.UseFlowValidation()` and a cached, assembly-scoped request-model validation middleware, replacing the core package's reflection-per-request middleware.
+- `IComparable`-based overloads for `IsInRange`, `IsGreaterThan`, `IsLessThan`, alongside the existing `int`-based overloads (unchanged).
+
+### Changed
+- Cache controller/action → parameter-type lookups in the ASP.NET Core middleware instead of reflecting over the whole assembly on every request.
+
+### Deprecated
+- `FlowValidationApp()` and `ModelValidationMiddleware` in the core package are obsolete; both will be removed in the next major version. Migrate to `app.UseFlowValidation()` from the new `FlowValidate.AspNetCore` package — both middlewares already respond `400 Bad Request` on a validation failure, so migrating changes no status codes, only the registration call and the package it comes from.
 
 ### Fixed
 - Fall back to the property expression's text when a rule's property expression isn't a simple member access, instead of returning `null` for `ValidationFailure.PropertyName`.
 - Make `FlowValidationService` idempotent so registering validators from the same assembly more than once no longer duplicates DI registrations.
 - Validate only the body-bound action parameter in the middleware, instead of re-reading the same request body for every parameter.
-
-### Added
-- `IComparable`-based overloads for `IsInRange`, `IsGreaterThan`, `IsLessThan`, alongside the existing `int`-based overloads (unchanged).
-
-### Changed
-- Cache controller/action → parameter-type lookups in the ASP.NET Core middleware instead of reflecting over the whole assembly on every request.
 
 ### Removed
 - Dead internal state (`_shouldBuilder`, `_shouldListBuilder`, `GetAllErrors()`, `AnyListErrors`) that was never populated or read.

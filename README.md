@@ -3,6 +3,7 @@
 | Package | Downloads | License |
 |---------|-----------|---------|
 | [![NuGet](https://img.shields.io/nuget/v/FlowValidate)](https://www.nuget.org/packages/FlowValidate) | [![Downloads](https://img.shields.io/nuget/dt/FlowValidate)](https://www.nuget.org/packages/FlowValidate) | [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kadirdemirkaya/FlowValidate/blob/main/LICENSE.txt) |
+| [![NuGet](https://img.shields.io/nuget/v/FlowValidate.AspNetCore)](https://www.nuget.org/packages/FlowValidate.AspNetCore) | [![Downloads](https://img.shields.io/nuget/dt/FlowValidate.AspNetCore)](https://www.nuget.org/packages/FlowValidate.AspNetCore) | [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kadirdemirkaya/FlowValidate/blob/main/LICENSE.txt) |
 
 
 #### Repository
