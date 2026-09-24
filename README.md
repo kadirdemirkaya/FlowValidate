@@ -319,6 +319,8 @@ public class ProductValidator : BaseValidator<Product>
 - `IsInRange` includes both bounds; `IsGreaterThan` and `IsLessThan` are strict.
 - A `null` value fails these rules. For an optional property that may be `null`, use `Must`, for example `RuleFor(x => x.Discount).Must(d => d is null or (>= 0m and <= 0.5m))`.
 - Integer bounds such as `IsInRange(1, 10)` still bind to the original `int` overloads, which behave exactly as before and only accept `int`-convertible values. On a `decimal`, `double` or `long` property, write the bounds with the matching literal suffix (`1m`, `1.0`, `1L`).
+- The `int` overloads of `IsGreaterThan` and `IsLessThan` round the value to an `int` before comparing, so on a `decimal` or `double` property they compare the rounded value, not the real one: `IsGreaterThan(5)` on `5.4m` fails and `IsLessThan(6)` on `5.6m` fails. This is why the matching literal suffix matters — `IsGreaterThan(5m)` and `IsLessThan(6m)` compare the value itself and both pass.
+- A value that cannot be converted to `int` at all — a `long` outside the `int` range, a non-numeric `string`, a `DateTime` — now fails the rule and is reported as a normal validation failure. Earlier versions let the conversion exception escape `Validate` / `ValidateAsync`.
 
 For more examples and unit tests, check the [FlowValidate.Test](https://github.com/kadirdemirkaya/FlowValidate/tree/main/test/FlowValidate.Test) project in the repository.  
 

@@ -30,6 +30,30 @@ namespace FlowValidate.Builders
             return expression.Body.ToString();
         }
 
+        private static bool TryConvertToInt32(TProperty value, out int converted)
+        {
+            try
+            {
+                converted = Convert.ToInt32(value);
+                return true;
+            }
+            catch (OverflowException)
+            {
+                converted = 0;
+                return false;
+            }
+            catch (FormatException)
+            {
+                converted = 0;
+                return false;
+            }
+            catch (InvalidCastException)
+            {
+                converted = 0;
+                return false;
+            }
+        }
+
         public ValidationRuleBuilder<T, TProperty> WithMessage(string errorMessage, string? errorCode = null)
         {
             if (_rulesWithMessages.Count == 0)
@@ -207,7 +231,7 @@ namespace FlowValidate.Builders
 
         public ValidationRuleBuilder<T, TProperty> IsGreaterThan(int minValue)
         {
-            return Must(value => Convert.ToInt32(value) > minValue);
+            return Must(value => TryConvertToInt32(value, out var intValue) && intValue > minValue);
         }
 
         public ValidationRuleBuilder<T, TProperty> MatchesRegex(string pattern)
@@ -249,7 +273,7 @@ namespace FlowValidate.Builders
 
         public ValidationRuleBuilder<T, TProperty> IsLessThan(int maxValue)
         {
-            return Must(value => Convert.ToInt32(value) < maxValue);
+            return Must(value => TryConvertToInt32(value, out var intValue) && intValue < maxValue);
         }
 
         public ValidationRuleBuilder<T, TProperty> IsDateInPast()
