@@ -111,9 +111,26 @@ namespace FlowValidate.Builders
         /// </summary>
         /// <param name="instance">The parent instance the property belongs to.</param>
         /// <returns>The aggregated <see cref="ValidationResult"/> for this property.</returns>
-        public async Task<ValidationResult> ValidateAsync(T instance)
+        public Task<ValidationResult> ValidateAsync(T instance) => ValidateAsync(instance, CancellationToken.None);
+
+        /// <summary>
+        /// Runs every rule registered on this property, in registration order, passing
+        /// <paramref name="cancellationToken"/> to the rules that accept one and observing it between
+        /// rules. Behaves exactly like <see cref="ValidateAsync(T)"/> when the token is
+        /// <see cref="CancellationToken.None"/>.
+        /// </summary>
+        /// <param name="instance">The parent instance the property belongs to.</param>
+        /// <param name="cancellationToken">Token observed while the rules run.</param>
+        /// <returns>The aggregated <see cref="ValidationResult"/> for this property.</returns>
+        /// <exception cref="OperationCanceledException">
+        /// <paramref name="cancellationToken"/> was cancelled. Cancellation is not reported as a rule
+        /// failure — an aborted run has no verdict about the value.
+        /// </exception>
+        public async Task<ValidationResult> ValidateAsync(T instance, CancellationToken cancellationToken)
         {
             var result = new ValidationResult();
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (_chainConditions.Any(condition => !condition(instance)))
                 return result;
@@ -123,6 +140,8 @@ namespace FlowValidate.Builders
             foreach (var (rule, validationFailure, isFromShould, messageOverride) in _rulesWithMessages)
             {
                 if (result.SkipRemainingRules) break;
+
+                cancellationToken.ThrowIfCancellationRequested();
 
                 bool passed = true;
 
@@ -142,6 +161,14 @@ namespace FlowValidate.Builders
                 {
                     passed = await r4(instance, value, result);
                 }
+                else if (rule is Func<TProperty, CancellationToken, Task<bool>> r5)
+                {
+                    passed = await r5(value, cancellationToken);
+                }
+                else if (rule is Func<T, TProperty, ValidationResult, CancellationToken, Task<bool>> r6)
+                {
+                    passed = await r6(instance, value, result, cancellationToken);
+                }
 
                 if (!passed)
                 {
@@ -160,6 +187,8 @@ namespace FlowValidate.Builders
                     result.SetIsValid(false);
                 }
             }
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             return result;
         }
@@ -185,7 +214,7 @@ namespace FlowValidate.Builders
         /// <para>
         /// Several <see cref="When"/> / <see cref="Unless"/> calls on the same chain are combined with
         /// AND — the chain runs only if all of them are met. Asynchronous rules
-        /// (<see cref="MustAsync"/>, <c>ShouldAsync</c>) are gated the same way, but a skipped chain
+        /// (<c>MustAsync</c>, <c>ShouldAsync</c>) are gated the same way, but a skipped chain
         /// still counts towards <see cref="HasAsyncRules"/>, so <see cref="BaseValidator{T}.Validate"/>
         /// keeps throwing for a validator that declares async rules.
         /// </para>
@@ -290,6 +319,26 @@ namespace FlowValidate.Builders
         /// <param name="rule">Async predicate evaluated against the property's value.</param>
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> MustAsync(Func<TProperty, Task<bool>> rule)
+        {
+            _rulesWithMessages.Add((rule, null, false, null));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a custom asynchronous rule that receives the <see cref="CancellationToken"/> passed to
+        /// <see cref="BaseValidator{T}.ValidateAsync(T, CancellationToken)"/>, so the work it starts
+        /// (a database or HTTP call) can be aborted with the request. Makes this validator's
+        /// <see cref="HasAsyncRules"/> return <see langword="true"/>.
+        /// </summary>
+        /// <param name="rule">Async predicate evaluated against the property's value and the token.</param>
+        /// <returns>This builder, for chaining.</returns>
+        /// <remarks>
+        /// The token is <see cref="CancellationToken.None"/> when validation is started through
+        /// <see cref="BaseValidator{T}.ValidateAsync(T)"/> or <see cref="BaseValidator{T}.Validate"/>.
+        /// An <see cref="OperationCanceledException"/> thrown by <paramref name="rule"/> after the token
+        /// is cancelled is not turned into a validation failure; it leaves <c>ValidateAsync</c>.
+        /// </remarks>
+        public ValidationRuleBuilder<T, TProperty> MustAsync(Func<TProperty, CancellationToken, Task<bool>> rule)
         {
             _rulesWithMessages.Add((rule, null, false, null));
             return this;
@@ -725,6 +774,65 @@ namespace FlowValidate.Builders
         }
 
         /// <summary>
+        /// Asynchronous counterpart of <see cref="Should(Action{TProperty, Action{string}})"/> that also
+        /// receives the <see cref="CancellationToken"/> passed to
+        /// <see cref="BaseValidator{T}.ValidateAsync(T, CancellationToken)"/>. Makes this validator's
+        /// <see cref="HasAsyncRules"/> return <see langword="true"/>.
+        /// </summary>
+        /// <param name="action">
+        /// Receives the property's value, an <c>error</c> callback that records one failure per call, and
+        /// the token.
+        /// </param>
+        /// <returns>This builder, for chaining.</returns>
+        /// <remarks>
+        /// An exception thrown by <paramref name="action"/> is still recorded as a single failure, with one
+        /// exception: once the token is cancelled, an <see cref="OperationCanceledException"/> is rethrown
+        /// instead of being reported, because an aborted run has no verdict about the value. Any other
+        /// exception, and an <see cref="OperationCanceledException"/> raised by unrelated work (a token the
+        /// rule owns itself), keeps the existing behavior.
+        /// </remarks>
+        public ValidationRuleBuilder<T, TProperty> ShouldAsync(Func<TProperty, Action<string>, CancellationToken, Task> action)
+        {
+            _rulesWithMessages.Add((
+                (Func<T, TProperty, ValidationResult, CancellationToken, Task<bool>>)(async (instance, value, result, cancellationToken) =>
+                {
+                    try
+                    {
+                        await action(value, error =>
+                        {
+                            result.AddFailure(new ValidationFailure(
+                                propertyName: _propertyName,
+                                errorMessage: error,
+                                attemptedValue: value,
+                                errorCode: "ShouldRule"
+                            ));
+                        }, cancellationToken);
+                        return true;
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch
+                    {
+                        result.AddFailure(new ValidationFailure(
+                            propertyName: _propertyName,
+                            errorMessage: "Unexpected exception in Should rule.",
+                            attemptedValue: value,
+                            errorCode: "ShouldRuleException"
+                        ));
+                        return false;
+                    }
+                }),
+                null,
+                true,
+                null
+            ));
+
+            return this;
+        }
+
+        /// <summary>
         /// Always returns an empty string; this method never accumulated any errors.
         /// </summary>
         /// <returns>An empty string.</returns>
@@ -803,6 +911,60 @@ namespace FlowValidate.Builders
             return this;
         }
 
+        /// <summary>
+        /// Asynchronous counterpart of <see cref="Should(Action{TProperty}, string)"/> that also receives
+        /// the <see cref="CancellationToken"/> passed to
+        /// <see cref="BaseValidator{T}.ValidateAsync(T, CancellationToken)"/>: runs
+        /// <paramref name="action"/> and records a single failure if it throws. Makes this validator's
+        /// <see cref="HasAsyncRules"/> return <see langword="true"/>.
+        /// </summary>
+        /// <param name="action">Invoked with the property's value and the token; an exception is treated as failure.</param>
+        /// <param name="errorMessage">
+        /// The failure message used when <paramref name="action"/> throws; pass <see langword="null"/> for
+        /// the default <c>"Custom validation failed !"</c>. It is required rather than optional so that an
+        /// existing single-argument <c>ShouldAsync(async (value, addError) =&gt; ...)</c> call keeps
+        /// resolving to <see cref="ShouldAsync(Func{TProperty, Action{string}, Task})"/> instead of
+        /// becoming ambiguous.
+        /// </param>
+        /// <returns>This builder, for chaining.</returns>
+        /// <remarks>
+        /// Once the token is cancelled, an <see cref="OperationCanceledException"/> from
+        /// <paramref name="action"/> is rethrown instead of being recorded as a failure, because an aborted
+        /// run has no verdict about the value. Every other exception keeps the existing behavior.
+        /// </remarks>
+        public ValidationRuleBuilder<T, TProperty> ShouldAsync(Func<TProperty, CancellationToken, Task> action, string? errorMessage)
+        {
+            _rulesWithMessages.Add((
+                (Func<T, TProperty, ValidationResult, CancellationToken, Task<bool>>)(async (instance, value, result, cancellationToken) =>
+                {
+                    try
+                    {
+                        await action(value, cancellationToken);
+                        return true;
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch
+                    {
+                        result.AddFailure(new ValidationFailure(
+                            propertyName: _propertyName,
+                            errorMessage: errorMessage ?? "Custom validation failed !",
+                            attemptedValue: value,
+                            errorCode: "ShouldRuleException"
+                        ));
+                        return false;
+                    }
+                }),
+                null,
+                true,
+                null
+            ));
+
+            return this;
+        }
+
 
         /// <summary>
         /// Overload of <see cref="Should(Action{TProperty}, string)"/> that joins multiple failure
@@ -844,11 +1006,13 @@ namespace FlowValidate.Builders
         }
 
         /// <summary>
-        /// <see langword="true"/> if any rule added via <see cref="MustAsync"/> or a <c>ShouldAsync</c>
+        /// <see langword="true"/> if any rule added via a <c>MustAsync</c> or <c>ShouldAsync</c>
         /// overload has been registered on this property.
         /// </summary>
         public bool HasAsyncRules => _rulesWithMessages.Any(r =>
             r.rule is Func<TProperty, Task<bool>> ||
-            r.rule is Func<T, TProperty, ValidationResult, Task<bool>>);
+            r.rule is Func<T, TProperty, ValidationResult, Task<bool>> ||
+            r.rule is Func<TProperty, CancellationToken, Task<bool>> ||
+            r.rule is Func<T, TProperty, ValidationResult, CancellationToken, Task<bool>>);
     }
 }

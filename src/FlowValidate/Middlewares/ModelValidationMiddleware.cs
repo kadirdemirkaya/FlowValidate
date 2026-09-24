@@ -61,7 +61,7 @@ namespace FlowValidate.Middlewares
 
                                 if (validator != null)
                                 {
-                                    var method = validatorType.GetMethod("ValidateAsync");
+                                    var method = validatorType.GetMethod("ValidateAsync", new[] { modelType });
 
                                     if (method is null)
                                     {

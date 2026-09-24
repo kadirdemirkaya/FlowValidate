@@ -50,7 +50,9 @@ namespace FlowValidate.Builders
             return this;
         }
 
-        public async Task<ValidationResult> ValidateAsync(T instance)
+        public Task<ValidationResult> ValidateAsync(T instance) => ValidateAsync(instance, CancellationToken.None);
+
+        public async Task<ValidationResult> ValidateAsync(T instance, CancellationToken cancellationToken)
         {
             var result = new ValidationResult();
             var collection = _collectionFunc(instance);
@@ -62,8 +64,10 @@ namespace FlowValidate.Builders
 
             foreach (var item in collection)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var element = _itemSelector(item);
-                var itemResult = await _elementValidator.ValidateAsync(element);
+                var itemResult = await _elementValidator.ValidateAsync(element, cancellationToken);
 
                 if (!itemResult.IsValid)
                     foreach (var failure in itemResult.Failures)

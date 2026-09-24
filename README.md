@@ -344,6 +344,47 @@ var resultAsync = await validator.ValidateAsync(user);
 var resultSync = validator.Validate(user);
 ```
 
+##### Cancellation
+
+`ValidateAsync(instance, cancellationToken)` runs the same rules and passes the token to every rule registered through a `MustAsync` or `ShouldAsync` overload that takes one, so a database or HTTP call made inside a rule is aborted when the caller gives up. The token is also checked between rules and between collection elements. Calling `ValidateAsync(instance)` without a token is exactly the same as passing `CancellationToken.None`, and the rule overloads without a token are unchanged.
+
+```csharp
+public class UserValidator : BaseValidator<User>
+{
+    public UserValidator(IUserRepository userRepository)
+    {
+        RuleFor(u => u.Email)
+            .MustAsync(async (email, cancellationToken) => !await userRepository.ExistsAsync(email, cancellationToken))
+            .WithMessage("This email address is already in use.");
+
+        RuleFor(u => u.Username)
+            .ShouldAsync(async (username, addError, cancellationToken) =>
+            {
+                if (await userRepository.IsBlacklistedAsync(username, cancellationToken))
+                {
+                    addError("Username is blacklisted.");
+                }
+            });
+
+        RuleFor(u => u.Bio)
+            .ShouldAsync(async (bio, cancellationToken) =>
+            {
+                await userRepository.ValidateBioFormatAsync(bio, cancellationToken);
+            }, "Bio format is invalid.");
+    }
+}
+
+var result = await validator.ValidateAsync(user, cancellationToken);
+```
+
+A cancelled token makes `ValidateAsync` throw `OperationCanceledException`; cancellation is **not** reported as a validation failure. An aborted run has no verdict about the instance, so turning it into a failure would tell the caller the instance is invalid when it may well be valid. This is the one case where `ShouldAsync` does not convert an exception into a failure: an `OperationCanceledException` raised after *your* token is cancelled is rethrown, while every other exception — including one from a token the rule owns itself — is still recorded as a failure as before.
+
+The `errorMessage` argument is required on `ShouldAsync(async (value, cancellationToken) => ..., errorMessage)`; pass `null` for the default message. It is not optional so that an existing `ShouldAsync(async (value, addError) => ...)` call keeps compiling to the callback overload.
+
+`UseFlowValidation()` passes `HttpContext.RequestAborted`, so validation for a request whose client has disconnected stops instead of running to completion. The obsolete `FlowValidationApp()` middleware is frozen and keeps validating without a token.
+
+`IBaseValidator<T>.ValidateAsync(T, CancellationToken)` has a default implementation, so a type that implements the interface by hand keeps compiling; the default observes the token once and then delegates to `ValidateAsync(T)`. Code that resolves the method by name through reflection must select it by signature — `GetMethod("ValidateAsync", new[] { typeof(T) })` — because the name alone is now ambiguous.
+
 ##### Using the Validator
 ```bash
 var user = new User
