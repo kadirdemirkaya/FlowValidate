@@ -1,3 +1,4 @@
+using FlowValidate.Enums;
 using FlowValidate.Models;
 using System.ComponentModel.DataAnnotations;
 using System.Linq.Expressions;
@@ -16,7 +17,7 @@ namespace FlowValidate.Builders
         private readonly Expression<Func<T, TProperty>> _property;
         private readonly Func<T, TProperty> _propertyFunc;
         private readonly string _propertyName;
-        private readonly List<(Delegate rule, ValidationFailure? validationFailure, bool isFromShould, (string ErrorMessage, string? ErrorCode)? messageOverride)> _rulesWithMessages = new();
+        private readonly List<(Delegate rule, ValidationFailure? validationFailure, bool isFromShould, (string ErrorMessage, string? ErrorCode)? messageOverride, Severity? severityOverride)> _rulesWithMessages = new();
         private readonly List<Func<T, bool>> _chainConditions = new();
 
         public ValidationRuleBuilder(Expression<Func<T, TProperty>> property)
@@ -81,7 +82,7 @@ namespace FlowValidate.Builders
                 var defaultCode = errorCode ?? "DefaultRule";
 
                 _rulesWithMessages[_rulesWithMessages.Count - 1] =
-                    (lastRule.rule, null, lastRule.isFromShould, (defaultMessage, defaultCode));
+                    (lastRule.rule, null, lastRule.isFromShould, (defaultMessage, defaultCode), lastRule.severityOverride);
             }
             else
             {
@@ -96,8 +97,36 @@ namespace FlowValidate.Builders
                         attemptedValue: vf.AttemptedValue,
                         errorCode: updatedCode,
                         severity: vf.Severity
-                    ), lastRule.isFromShould, lastRule.messageOverride);
+                    ), lastRule.isFromShould, lastRule.messageOverride, lastRule.severityOverride);
             }
+
+            return this;
+        }
+
+        /// <summary>
+        /// Overrides the severity of the most recently added rule's failure. Has no effect if no rule
+        /// has been added yet, following the same contract as <see cref="WithMessage"/>.
+        /// </summary>
+        /// <param name="severity">The severity to record on the failure instead of <see cref="Severity.Error"/>.</param>
+        /// <returns>This builder, for chaining.</returns>
+        /// <remarks>
+        /// Can be combined with <see cref="WithMessage"/> in either order on the same rule. Like
+        /// <see cref="WithMessage"/>, it has no effect on failures raised from inside a
+        /// <c>Should</c>/<c>ShouldAsync</c> callback, since those build their own
+        /// <see cref="ValidationFailure"/> instances directly and never read this chain's overrides.
+        /// The default <see cref="Severity.Error"/> is unchanged when this method is not called, and
+        /// <see cref="ValidationResult.IsValid"/> still turns <see langword="false"/> for a failing rule
+        /// regardless of the severity recorded on it.
+        /// </remarks>
+        public ValidationRuleBuilder<T, TProperty> WithSeverity(Severity severity)
+        {
+            if (_rulesWithMessages.Count == 0)
+                return this;
+
+            var lastRule = _rulesWithMessages.Last();
+
+            _rulesWithMessages[_rulesWithMessages.Count - 1] =
+                (lastRule.rule, lastRule.validationFailure, lastRule.isFromShould, lastRule.messageOverride, severity);
 
             return this;
         }
@@ -137,7 +166,7 @@ namespace FlowValidate.Builders
 
             var value = _propertyFunc(instance);
 
-            foreach (var (rule, validationFailure, isFromShould, messageOverride) in _rulesWithMessages)
+            foreach (var (rule, validationFailure, isFromShould, messageOverride, severityOverride) in _rulesWithMessages)
             {
                 if (result.SkipRemainingRules) break;
 
@@ -174,12 +203,22 @@ namespace FlowValidate.Builders
                 {
                     if (!isFromShould)
                     {
-                        var failure = validationFailure ?? new ValidationFailure(
+                        var baseFailure = validationFailure ?? new ValidationFailure(
                             propertyName: _propertyName,
                             errorMessage: messageOverride?.ErrorMessage ?? "Validation failed for property.",
                             attemptedValue: value,
                             errorCode: messageOverride?.ErrorCode ?? "DefaultRule"
                         );
+
+                        var failure = severityOverride.HasValue
+                            ? new ValidationFailure(
+                                propertyName: baseFailure.PropertyName,
+                                errorMessage: baseFailure.ErrorMessage,
+                                attemptedValue: baseFailure.AttemptedValue,
+                                errorCode: baseFailure.ErrorCode,
+                                severity: severityOverride.Value
+                            )
+                            : baseFailure;
 
                         result.AddFailure(failure);
                     }
@@ -294,6 +333,7 @@ namespace FlowValidate.Builders
                           errorCode: "Required"
                       ),
                   false,
+                  null,
                   null
               ));
 
@@ -308,7 +348,7 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> Must(Func<TProperty, bool> rule)
         {
-            _rulesWithMessages.Add((rule, null, false, null));
+            _rulesWithMessages.Add((rule, null, false, null, null));
             return this;
         }
 
@@ -320,7 +360,7 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> MustAsync(Func<TProperty, Task<bool>> rule)
         {
-            _rulesWithMessages.Add((rule, null, false, null));
+            _rulesWithMessages.Add((rule, null, false, null, null));
             return this;
         }
 
@@ -340,7 +380,7 @@ namespace FlowValidate.Builders
         /// </remarks>
         public ValidationRuleBuilder<T, TProperty> MustAsync(Func<TProperty, CancellationToken, Task<bool>> rule)
         {
-            _rulesWithMessages.Add((rule, null, false, null));
+            _rulesWithMessages.Add((rule, null, false, null, null));
             return this;
         }
 
@@ -536,6 +576,7 @@ namespace FlowValidate.Builders
                 }),
                 null,
                 false,
+                null,
                 null
             ));
 
@@ -721,6 +762,7 @@ namespace FlowValidate.Builders
                 }),
                 null,
                 true,
+                null,
                 null
             ));
 
@@ -767,6 +809,7 @@ namespace FlowValidate.Builders
                 }),
                 null,
                 true,
+                null,
                 null
             ));
 
@@ -826,6 +869,7 @@ namespace FlowValidate.Builders
                 }),
                 null,
                 true,
+                null,
                 null
             ));
 
@@ -868,6 +912,7 @@ namespace FlowValidate.Builders
                 }),
                 null,
                 true,
+                null,
                 null
             ));
 
@@ -905,6 +950,7 @@ namespace FlowValidate.Builders
                 }),
                 null,
                 true,
+                null,
                 null
             ));
 
@@ -959,6 +1005,7 @@ namespace FlowValidate.Builders
                 }),
                 null,
                 true,
+                null,
                 null
             ));
 
@@ -999,6 +1046,7 @@ namespace FlowValidate.Builders
                 }),
                 null,
                 true,
+                null,
                 null
             ));
 
