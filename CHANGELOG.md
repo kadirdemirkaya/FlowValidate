@@ -7,6 +7,8 @@ determined with confidence are marked ❓ instead of being guessed.
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-09-25
+
 ### Added
 - `CancellationToken` support: `ValidateAsync(T instance, CancellationToken cancellationToken)` on `BaseValidator<T>` and on `IBaseValidator<T>` (as a default interface method, so hand-written implementations keep compiling), plus `MustAsync(Func<TProperty, CancellationToken, Task<bool>>)`, `ShouldAsync(Func<TProperty, Action<string>, CancellationToken, Task>)` and `ShouldAsync(Func<TProperty, CancellationToken, Task>, string?)`. The token reaches nested, collection and registry validators and is observed between rules. A cancelled token throws `OperationCanceledException` out of `ValidateAsync` instead of being reported as a validation failure. The existing signatures and their behavior are unchanged; validating without a token is exactly the same as passing `CancellationToken.None`.
 - `UseFlowValidation()` now passes `HttpContext.RequestAborted` to the validator, so validation stops when the client disconnects. The obsolete `FlowValidationApp()` middleware stays frozen and validates without a token.
@@ -86,7 +88,8 @@ determined with confidence are marked ❓ instead of being guessed.
 
 - Initial published version.
 
-[Unreleased]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.1.6...v1.2.0

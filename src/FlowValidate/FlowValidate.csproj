@@ -5,7 +5,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<PackageId>FlowValidate</PackageId>
-		<Version>1.4.0</Version>
+		<Version>1.5.0</Version>
 		<Authors>Kadir Demirkaya</Authors>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageProjectUrl>https://github.com/kadirdemirkaya/FlowValidate</PackageProjectUrl>
@@ -14,9 +14,9 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageTags>validation, model, request, library</PackageTags>
 		<Description>A lightweight fluent validation library for request-based models, with conditional rule chains, async rule support, and nested/collection/registry composition.</Description>
-		<AssemblyInformationalVersion>1.4.0</AssemblyInformationalVersion>
+		<AssemblyInformationalVersion>1.5.0</AssemblyInformationalVersion>
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-		<PackageReleaseNotes>Added When/Unless conditions to the rule chain, opt-in indexed property names for collection failures, ValidationResult.ToDictionary(), and net10.0 plus XML docs/SourceLink packages. Fixed Should/ShouldAsync double-reporting and false-positive failures, IsUnique on value-typed collections, escaping exceptions from the int comparison overloads, null-collection/null-root handling, and WithMessage dropping AttemptedValue. Pinned System.Text.Encodings.Web to close a transitive Critical advisory.</PackageReleaseNotes>
+		<PackageReleaseNotes>Added CancellationToken support to ValidateAsync, MustAsync and ShouldAsync, opt-in bounded MatchesRegex overloads with a RegexTimeout failure code, UseDescriptiveMessages()/WithDescriptiveMessages() for per-rule failure messages and error codes on the built-in rules, and WithSeverity(Severity) to override the last rule's failure severity.</PackageReleaseNotes>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<NoWarn>$(NoWarn);CS1591</NoWarn>
 		<IncludeSymbols>true</IncludeSymbols>
