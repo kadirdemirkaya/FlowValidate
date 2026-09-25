@@ -1,6 +1,6 @@
 using FlowValidate.Abstractions;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using System.Diagnostics.CodeAnalysis;
@@ -40,12 +40,10 @@ namespace FlowValidate.AspNetCore
 
         public async Task InvokeAsync(HttpContext context)
         {
-            var routeData = context.GetRouteData();
-            var actionDescriptor = routeData.Values["action"] as string;
-            var controllerDescriptor = routeData.Values["controller"] as string;
+            var actionDescriptor = context.GetEndpoint()?.Metadata.GetMetadata<ControllerActionDescriptor>();
 
-            if (!string.IsNullOrEmpty(actionDescriptor) && !string.IsNullOrEmpty(controllerDescriptor)
-                && _actionBodyParameters.TryGetBodyParameterType(controllerDescriptor, actionDescriptor, out var modelType))
+            if (actionDescriptor is not null
+                && _actionBodyParameters.TryGetBodyParameterType(actionDescriptor, out var modelType))
             {
                 context.Request.EnableBuffering();
                 var requestBody = await new StreamReader(context.Request.Body).ReadToEndAsync();

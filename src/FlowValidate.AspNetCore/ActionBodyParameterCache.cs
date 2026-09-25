@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Mvc.Abstractions;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using System.Collections.Concurrent;
 using System.ComponentModel;
@@ -11,7 +13,8 @@ namespace FlowValidate.AspNetCore
         private const string ControllerSuffix = "Controller";
 
         private readonly Lazy<IReadOnlyDictionary<string, Type>> _controllers;
-        private readonly ConcurrentDictionary<Type, Lazy<IReadOnlyDictionary<string, Type?>>> _actions = new();
+        private readonly ConcurrentDictionary<Type, Lazy<HashSet<MethodInfo>>> _actions = new();
+        private readonly ConcurrentDictionary<string, Type?> _bodyParameters = new();
 
         public ActionBodyParameterCache(IEnumerable<Assembly> assemblies)
         {
@@ -19,34 +22,38 @@ namespace FlowValidate.AspNetCore
         }
 
         public bool TryGetBodyParameterType(
-            string controllerName,
-            string actionName,
+            ControllerActionDescriptor actionDescriptor,
             [MaybeNullWhen(false)] out Type bodyParameterType)
         {
-            bodyParameterType = null;
+            bodyParameterType = _bodyParameters.GetOrAdd(actionDescriptor.Id, _ => Resolve(actionDescriptor));
 
-            if (!_controllers.Value.TryGetValue($"{controllerName}{ControllerSuffix}", out var controllerType))
+            return bodyParameterType is not null;
+        }
+
+        private Type? Resolve(ControllerActionDescriptor actionDescriptor)
+        {
+            var controllerTypeName = actionDescriptor.ControllerTypeInfo.FullName ?? actionDescriptor.ControllerTypeInfo.Name;
+
+            if (!_controllers.Value.TryGetValue(controllerTypeName, out var controllerType))
             {
-                return false;
+                return null;
             }
 
             var actions = _actions.GetOrAdd(
                 controllerType,
-                type => new Lazy<IReadOnlyDictionary<string, Type?>>(() => IndexActions(type))).Value;
+                type => new Lazy<HashSet<MethodInfo>>(() => IndexActions(type))).Value;
 
-            if (!actions.TryGetValue(actionName, out var found) || found is null)
+            if (!actions.Contains(actionDescriptor.MethodInfo))
             {
-                return false;
+                return null;
             }
 
-            bodyParameterType = found;
-
-            return true;
+            return ResolveBodyParameterType(actionDescriptor);
         }
 
         private static IReadOnlyDictionary<string, Type> IndexControllers(IEnumerable<Assembly> assemblies)
         {
-            var controllers = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
+            var controllers = new Dictionary<string, Type>(StringComparer.Ordinal);
 
             foreach (var assembly in assemblies.Distinct())
             {
@@ -54,7 +61,7 @@ namespace FlowValidate.AspNetCore
                 {
                     if (type.Name.EndsWith(ControllerSuffix, StringComparison.OrdinalIgnoreCase))
                     {
-                        controllers.TryAdd(type.Name, type);
+                        controllers.TryAdd(type.FullName ?? type.Name, type);
                     }
                 }
             }
@@ -62,29 +69,19 @@ namespace FlowValidate.AspNetCore
             return controllers;
         }
 
-        private static IReadOnlyDictionary<string, Type?> IndexActions(Type controllerType)
+        private static HashSet<MethodInfo> IndexActions(Type controllerType)
         {
-            var actions = new Dictionary<string, Type?>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var method in controllerType.GetMethods())
-            {
-                if (!actions.ContainsKey(method.Name))
-                {
-                    actions.Add(method.Name, ResolveBodyParameterType(method));
-                }
-            }
-
-            return actions;
+            return new HashSet<MethodInfo>(controllerType.GetMethods());
         }
 
-        private static Type? ResolveBodyParameterType(MethodInfo method)
+        private static Type? ResolveBodyParameterType(ActionDescriptor actionDescriptor)
         {
             Type? inferredBodyParameterType = null;
             var inferredCount = 0;
 
-            foreach (var parameter in method.GetParameters())
+            foreach (var parameter in actionDescriptor.Parameters)
             {
-                var bindingSource = GetBindingSource(parameter);
+                var bindingSource = parameter.BindingInfo?.BindingSource;
 
                 if (bindingSource is not null)
                 {
@@ -104,19 +101,6 @@ namespace FlowValidate.AspNetCore
             }
 
             return inferredCount == 1 ? inferredBodyParameterType : null;
-        }
-
-        private static BindingSource? GetBindingSource(ParameterInfo parameter)
-        {
-            foreach (var attribute in parameter.GetCustomAttributes(inherit: true))
-            {
-                if (attribute is IBindingSourceMetadata metadata && metadata.BindingSource is not null)
-                {
-                    return metadata.BindingSource;
-                }
-            }
-
-            return null;
         }
 
         private static bool IsInferredBodyParameter(Type parameterType)
