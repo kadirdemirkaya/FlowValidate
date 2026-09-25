@@ -31,6 +31,7 @@ Targets `net6.0`, `net7.0`, `net8.0`, `net9.0` and `net10.0`.
 - **Async / Task-based Validation**: Rules can run asynchronously (`MustAsync` / `ShouldAsync`) with a synchronous validation fallback bridge.  
 - **DI Support**: Easy integration with dependency injection.  
 - **Clear Error Messages**: Provides detailed validation feedback.  
+- **Descriptive Built-in Failures**: Opt in with `UseDescriptiveMessages()` and every built-in rule reports the property and the bound it enforces, plus its own error code (`NotEmpty`, `Length`, `InRange`, …).  
 - **Detailed Error Messages**: Provides rich validation feedback with property name, attempted value, and optional error code.
 - **Lightweight & Fast**: Optimized for high performance.  
 - **Middleware Ready**: Can validate models automatically on each request with the separate `FlowValidate.AspNetCore` package.
@@ -447,6 +448,60 @@ RuleFor(x => x.Name).WithMessage("This is ignored");
 
 `ValidationFailure.AttemptedValue` on a `WithMessage`-annotated failure is always the real value that
 was validated, the same as when `WithMessage` is omitted.
+
+##### Descriptive Messages for Built-in Rules
+
+Without `WithMessage(...)`, a failing built-in rule reports `"Validation failed for property."` with the error code `DefaultRule`. Call `UseDescriptiveMessages()` in the validator to have every built-in rule on it report the property it guards, the bound it enforces, and its own error code instead:
+
+```csharp
+public class UserValidator : BaseValidator<User>
+{
+    public UserValidator()
+    {
+        UseDescriptiveMessages();
+
+        RuleFor(x => x.Name).Length(3, 100);
+        RuleFor(x => x.Email).IsEmail();
+        RuleFor(x => x.Age).IsInRange(18, 65);
+    }
+}
+```
+
+```text
+Name must be between 3 and 100 characters.   [Length]
+Email must be a valid email address.         [Email]
+Age must be between 18 and 65.               [InRange]
+```
+
+- **Opt-in and additive.** Without the call, every message and code is exactly what it was before. It can be written anywhere in the constructor — it is read when validation runs, so the rules registered before it are covered too.
+- **`WithMessage` always wins.** Its message replaces the descriptive one, and its error code replaces the rule's code when one is passed: `Length(3, 100).WithMessage("Name is too short.")` reports that message with the code `Length`.
+- **Per chain, too.** `RuleFor(x => x.Name).Length(3, 100).WithDescriptiveMessages()` opts one chain in without touching the rest of the validator, and `WithDescriptiveMessages(false)` opts one chain back out of a validator-wide `UseDescriptiveMessages()`.
+- **Not propagated.** The setting belongs to the validator it is called on. Validators passed to `ValidateNested`, `ValidateCollection` and `ValidateRegistryRules` are independent instances that may be shared, so call it on each one whose messages should be descriptive. Collection failures keep their `"Element n: "` prefix: `Element 1: Sku must be between 3 and 10 characters.`
+- **Custom rules are unaffected.** `Must`, `MustAsync`, `Should` and `ShouldAsync` keep their own messages and codes, and `RequiredIf` keeps `"Property is required."` with `Required`.
+- The codes are available as constants on `BuiltInRuleCodes`, so a client can branch on `failure.ErrorCode == BuiltInRuleCodes.Length` without a magic string.
+
+| Rule | Error code | Message with descriptive failures on |
+|---|---|---|
+| `IsNotEmpty()` | `NotEmpty` | `Name must not be empty.` |
+| `IsEqual(value)` | `Equal` | `Name must be equal to 'value'.` |
+| `Contains(substring)` | `Contains` | `Name must contain 'substring'.` |
+| `Length(min, max)` | `Length` | `Name must be between 3 and 100 characters.` |
+| `IsEmail()` | `Email` | `Email must be a valid email address.` |
+| `MatchesRegex(...)` (all overloads) | `RegexMatch` | `Code must match the required pattern.` |
+| `IsInRange(min, max)` (all overloads) | `InRange` | `Age must be between 18 and 65.` |
+| `IsGreaterThan(min)` (all overloads) | `GreaterThan` | `Age must be greater than 18.` |
+| `IsLessThan(max)` (all overloads) | `LessThan` | `Age must be less than 65.` |
+| `IsDateInFuture()` | `DateInFuture` | `StartsAt must be a date in the future.` |
+| `IsInFuture()` | `InFuture` | `Renewal must be a date in the future.` |
+| `IsDateInPast()` | `DateInPast` | `EndedAt must be a date in the past.` |
+| `IsUnique()` | `Unique` | `Tags must contain unique items.` |
+| `NoConsecutiveRepeats(n)` | `NoConsecutiveRepeats` | `Password must not repeat the same character 3 or more times in a row.` |
+| `IsPalindrome()` | `Palindrome` | `Word must be a palindrome.` |
+| `RequiredIf(condition)` | `Required` | `Property is required.` (unchanged either way) |
+| `Must` / `MustAsync` | `DefaultRule` | `Validation failed for property.` (unchanged either way) |
+| `Should` / `ShouldAsync` | `ShouldRule` | the message the callback raised (unchanged either way) |
+
+A `MatchesRegex` match that exceeds its timeout keeps reporting `RegexTimeout` with its own message, descriptive failures on or off.
 
 ##### Ranges and Comparisons for Any Ordered Type
 
