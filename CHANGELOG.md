@@ -8,6 +8,7 @@ determined with confidence are marked ❓ instead of being guessed.
 ## [Unreleased]
 
 ### Added
+- `WithPropertyPrefix(string)` on `ValidationNestedBuilder` and `ValidationRegistryRules`: opt-in property-name prefix for nested/registry validator failures (`Billing.City`), so a client can tell two nested objects on the same parent (`Billing` vs. `Shipping`) apart, the same way `WithIndexedPropertyNames` does for collections. A failure with no property name is reported as the prefix alone (`Billing`), and an empty or whitespace prefix throws `ArgumentException`. Composes with `WithIndexedPropertyNames` (`Orders[0].Billing.City`). Off by default; property names and messages are unchanged unless the method is called.
 - `IsDateInFuture`, `IsDateInPast` and `IsInFuture` now accept `DateTimeOffset` (and `DateTimeOffset?`) properties, compared against `DateTimeOffset.UtcNow`.
 
 ### Fixed
