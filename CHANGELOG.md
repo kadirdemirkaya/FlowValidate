@@ -7,7 +7,11 @@ determined with confidence are marked ❓ instead of being guessed.
 
 ## [Unreleased]
 
+### Added
+- `IsDateInFuture`, `IsDateInPast` and `IsInFuture` now accept `DateTimeOffset` (and `DateTimeOffset?`) properties, compared against `DateTimeOffset.UtcNow`.
+
 ### Fixed
+- Stop `IsDateInFuture`, `IsDateInPast` and `IsInFuture` from comparing a UTC `DateTime` against local time. A `DateTime` with `Kind == DateTimeKind.Utc` is now compared against `DateTime.UtcNow`; `Local` and `Unspecified` keep comparing against `DateTime.Now` as before. This also fixes false failures for UTC values produced by the `System.Text.Json` middleware body-parsing path added in 1.5.0.
 - Stop `UseFlowValidation()` from silently skipping actions whose action name differs from their method name. The body parameter is now resolved from the matched endpoint's own `ControllerActionDescriptor` instead of from the `controller`/`action` route values, so an `Async`-suffixed method (`SaveAsync`, shortened to the `Save` action by `SuppressAsyncSuffixInActionNames`) and an action renamed with `[ActionName]` are validated instead of reaching the controller with an invalid body and no error. Two controllers that share a class name in different namespaces no longer collapse onto whichever one was found first, so each action is validated against its own model. Which parameter counts as the body (`[FromBody]`, or the single complex-typed parameter with no binding source) is unchanged, and a request with no matched endpoint or a non-controller endpoint such as a minimal API handler still passes through untouched. The obsolete `FlowValidationApp()` in the core package stays frozen and keeps matching by method name.
 - Stop `ValidateRegistryRules` and `ValidateCollection` from letting `ArgumentNullException` escape for a `null` composed value. `ValidateRegistryRules` now skips a `null` property, the same contract `ValidateNested` already had. `ValidateCollection` now reports a single failure per `null` element (`"Element n: cannot be null."`, `ErrorCode: BuiltInRuleCodes.NullElement`, `PropertyName` set to `Items[i]` when `WithIndexedPropertyNames` is on) instead of throwing, and keeps validating the remaining elements.
 
