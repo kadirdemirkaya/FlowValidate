@@ -73,5 +73,8 @@ namespace FlowValidate
 
         /// <summary>The descriptive code of <c>IsPalindrome</c>: <c>Palindrome</c>.</summary>
         public const string Palindrome = "Palindrome";
+
+        /// <summary>The code reported by <c>ValidateCollection</c> for a <see langword="null"/> element: <c>NullElement</c>.</summary>
+        public const string NullElement = "NullElement";
     }
 }
