@@ -5,7 +5,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<PackageId>FlowValidate.AspNetCore</PackageId>
-		<Version>1.5.0</Version>
+		<Version>1.6.0</Version>
 		<Authors>Kadir Demirkaya</Authors>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageProjectUrl>https://github.com/kadirdemirkaya/FlowValidate</PackageProjectUrl>
@@ -14,9 +14,9 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageTags>validation, model, request, middleware, aspnetcore</PackageTags>
 		<Description>ASP.NET Core request validation middleware for FlowValidate. Validates controller action models with the registered FlowValidate validators and answers invalid requests with 400 Bad Request and the validation failures.</Description>
-		<AssemblyInformationalVersion>1.5.0</AssemblyInformationalVersion>
+		<AssemblyInformationalVersion>1.6.0</AssemblyInformationalVersion>
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-		<PackageReleaseNotes>UseFlowValidation() now passes HttpContext.RequestAborted to the validator and supports the new ValidateAsync cancellation token overload. Added UseFlowValidation(Action&lt;FlowValidationOptions&gt;) with FlowValidationOptions.UseSystemTextJson to deserialize the request body with the host's System.Text.Json settings instead of Newtonsoft.Json.</PackageReleaseNotes>
+		<PackageReleaseNotes>Fixed UseFlowValidation() silently skipping actions whose action name differs from their method name (an Async-suffixed method, or an action renamed with [ActionName]), and two controllers sharing a class name in different namespaces colliding onto the same validator. The body parameter is now resolved from the matched endpoint's own ControllerActionDescriptor instead of the controller/action route values.</PackageReleaseNotes>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<NoWarn>$(NoWarn);CS1591</NoWarn>
 		<IncludeSymbols>true</IncludeSymbols>

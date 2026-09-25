@@ -7,6 +7,8 @@ determined with confidence are marked ❓ instead of being guessed.
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-09-26
+
 ### Added
 - `WithPropertyPrefix(string)` on `ValidationNestedBuilder` and `ValidationRegistryRules`: opt-in property-name prefix for nested/registry validator failures (`Billing.City`), so a client can tell two nested objects on the same parent (`Billing` vs. `Shipping`) apart, the same way `WithIndexedPropertyNames` does for collections. A failure with no property name is reported as the prefix alone (`Billing`), and an empty or whitespace prefix throws `ArgumentException`. Composes with `WithIndexedPropertyNames` (`Orders[0].Billing.City`). Off by default; property names and messages are unchanged unless the method is called.
 - `IsDateInFuture`, `IsDateInPast` and `IsInFuture` now accept `DateTimeOffset` (and `DateTimeOffset?`) properties, compared against `DateTimeOffset.UtcNow`.
@@ -98,7 +100,8 @@ determined with confidence are marked ❓ instead of being guessed.
 
 - Initial published version.
 
-[Unreleased]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.2.0...v1.3.0
