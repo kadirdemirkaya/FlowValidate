@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kadirdemirkaya/FlowValidate/main/assets/icon.png" alt="FlowValidate logo" width="112" />
+</p>
+
 ## NuGet Package Information
 
 | Package | Downloads | License |

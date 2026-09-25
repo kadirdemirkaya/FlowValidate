@@ -12,6 +12,7 @@
 		<RepositoryUrl>https://github.com/kadirdemirkaya/FlowValidate</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageIcon>icon.png</PackageIcon>
 		<PackageTags>validation, model, request, library</PackageTags>
 		<Description>A lightweight fluent validation library for request-based models, with conditional rule chains, async rule support, and nested/collection/registry composition.</Description>
 		<AssemblyInformationalVersion>1.6.0</AssemblyInformationalVersion>
@@ -32,6 +33,7 @@
 	<ItemGroup>
 		<None Include="..\..\README.md" Pack="true" PackagePath="" />
 		<None Include="..\..\LICENSE.txt" Pack="true" PackagePath="" />
+		<None Include="..\..\assets\icon.png" Pack="true" PackagePath="" />
 	</ItemGroup>
 
 	<ItemGroup>
