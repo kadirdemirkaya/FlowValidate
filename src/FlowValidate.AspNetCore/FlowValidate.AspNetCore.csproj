@@ -12,6 +12,7 @@
 		<RepositoryUrl>https://github.com/kadirdemirkaya/FlowValidate</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageIcon>icon.png</PackageIcon>
 		<PackageTags>validation, model, request, middleware, aspnetcore</PackageTags>
 		<Description>ASP.NET Core request validation middleware for FlowValidate. Validates controller action models with the registered FlowValidate validators and answers invalid requests with 400 Bad Request and the validation failures.</Description>
 		<AssemblyInformationalVersion>1.6.0</AssemblyInformationalVersion>
@@ -32,6 +33,7 @@
 	<ItemGroup>
 		<None Include="..\..\README.md" Pack="true" PackagePath="" />
 		<None Include="..\..\LICENSE.txt" Pack="true" PackagePath="" />
+		<None Include="..\..\assets\icon.png" Pack="true" PackagePath="" />
 	</ItemGroup>
 
 	<ItemGroup>
