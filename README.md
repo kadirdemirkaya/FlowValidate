@@ -181,7 +181,7 @@ public class UserValidator : BaseValidator<User>
 
 ##### Builder Types Returned by `ValidateNested`, `ValidateCollection` and `ValidateRegistryRules`
 
-`ValidateNested`, `ValidateCollection` and `ValidateRegistryRules` return `ValidationNestedBuilder<T, TProperty>`, `ValidationCollectionBuilder<T, TCollection, TElement>` and `ValidationRegistryRules<T, TProperty>`. All three expose `Task<ValidationResult> ValidateAsync(T instance)`; `ValidationCollectionBuilder<T, TCollection, TElement>` additionally exposes `WithIndexedPropertyNames(string collectionName)` (see below). `RuleFor` already wires the returned builder into the parent validator's rule pipeline, so `Validate(user)` / `ValidateAsync(user)` on `UserValidator` runs it automatically — you do not need to call `ValidateAsync` on the child builder yourself. It is there mainly so a test can exercise one composition step in isolation, for example `await new UserDetailsValidator().ValidateAsync(details)` directly, or `await new ValidationNestedBuilder<User, UserDetails>(u => u.Details, new UserDetailsValidator()).ValidateAsync(user)`.
+`ValidateNested`, `ValidateCollection` and `ValidateRegistryRules` return `ValidationNestedBuilder<T, TProperty>`, `ValidationCollectionBuilder<T, TCollection, TElement>` and `ValidationRegistryRules<T, TProperty>`. All three expose `Task<ValidationResult> ValidateAsync(T instance)`; `ValidationCollectionBuilder<T, TCollection, TElement>` additionally exposes `WithIndexedPropertyNames(string collectionName)` (see below), and `ValidationNestedBuilder<T, TProperty>` / `ValidationRegistryRules<T, TProperty>` expose `WithPropertyPrefix(string prefix)` (see below). `RuleFor` already wires the returned builder into the parent validator's rule pipeline, so `Validate(user)` / `ValidateAsync(user)` on `UserValidator` runs it automatically — you do not need to call `ValidateAsync` on the child builder yourself. It is there mainly so a test can exercise one composition step in isolation, for example `await new UserDetailsValidator().ValidateAsync(details)` directly, or `await new ValidationNestedBuilder<User, UserDetails>(u => u.Details, new UserDetailsValidator()).ValidateAsync(user)`.
 
 ##### Indexed Property Names for Collection Failures
 
@@ -201,6 +201,28 @@ ErrorMessage : Element 2: Name is required.
 - The option is **opt-in per collection**. Without the call, property names and messages stay exactly as they were.
 - The collection name is passed explicitly because `ValidateCollection` takes a delegate, not an expression, so the name cannot be inferred from the selector. An empty or whitespace name throws `ArgumentException`.
 - Paths compose: a collection inside a collection that both opt in yields `Orders[0].Lines[2].Qty`, and a nested validator inside an opted-in collection yields `Orders[1].Street`.
+- The resulting names go straight into `ValidationResult.ToDictionary()` keys and into the `400 Bad Request` body written by `app.UseFlowValidation()`.
+
+##### Property Prefix for Nested and Registry Validator Failures
+
+By default a failure coming from `ValidateNested` or `ValidateRegistryRules` carries only the child validator's own property name (`City`), so two nested objects on the same parent (`Billing` and `Shipping`) produce indistinguishable failures. Chain `WithPropertyPrefix("Billing")` on the builder returned by either method to prefix the property name instead:
+
+```csharp
+ValidateNested(x => x.Billing, new AddressValidator())
+    .WithPropertyPrefix("Billing");
+
+ValidateNested(x => x.Shipping, new AddressValidator())
+    .WithPropertyPrefix("Shipping");
+```
+
+```
+PropertyName : Billing.City
+ErrorMessage : City is required.
+```
+
+- The option is **opt-in per nested/registry validator**. Without the call, property names and messages stay exactly as they were.
+- A failure with no property name (`"<root>"`) is reported as the prefix alone (`Billing`), not `Billing.<root>`.
+- Paths compose with `WithIndexedPropertyNames`: a nested validator opted into a prefix inside an opted-in collection yields `Orders[0].Billing.City`.
 - The resulting names go straight into `ValidationResult.ToDictionary()` keys and into the `400 Bad Request` body written by `app.UseFlowValidation()`.
 
 ##### `null` Handling
