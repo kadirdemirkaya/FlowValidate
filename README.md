@@ -530,6 +530,38 @@ A `MatchesRegex` match that exceeds its timeout keeps reporting `RegexTimeout` w
 
 `IsDateInFuture`, `IsDateInPast` and `IsInFuture` support `DateTime`, `DateTimeOffset` and `DateOnly` (and their nullable forms). A `DateTime` with `Kind == DateTimeKind.Utc` is compared against `DateTime.UtcNow`; `Local` or `Unspecified` is compared against `DateTime.Now`. `DateTimeOffset` is always compared against `DateTimeOffset.UtcNow`, and `DateOnly` against today's local date. A `null` value, or any other property type, always fails.
 
+##### Stopping a Chain at the First Failure
+
+By default every rule on a `RuleFor` chain runs, even after an earlier one has already failed, so
+`RuleFor(x => x.Email).IsNotEmpty().IsEmail()` against an empty `Email` reports **two** failures
+(`NotEmpty` and `Email`). Call `StopOnFirstFailure()` anywhere on the chain to stop it after the first
+failing rule instead:
+
+```csharp
+public class UserValidator : BaseValidator<User>
+{
+    public UserValidator()
+    {
+        RuleFor(x => x.Email).IsNotEmpty().IsEmail().StopOnFirstFailure();
+    }
+}
+```
+
+With `Email = ""`, this reports only `Email must not be empty.` — `IsEmail()` never runs.
+
+- **Opt-in and additive.** Without the call every rule on the chain still runs, exactly as before.
+- **Applies to the whole chain, independent of placement.** `StopOnFirstFailure()` written first, last,
+  or in the middle of the chain behaves identically — the same rule `WithDescriptiveMessages` follows.
+- **Validator-wide default.** `UseStopOnFirstFailure()` on the validator opts every `RuleFor` chain in
+  at once; a single chain overrides it in either direction with its own `StopOnFirstFailure(bool)`.
+- **Async rules after the failure are not awaited.** Once a rule fails, the chain stops before reaching
+  the next `MustAsync`/`ShouldAsync` rule — it is skipped entirely, not merely ignored after running.
+- **`Should`/`ShouldAsync` can still raise more than one error per rule.** When such a rule fails, every
+  error it raised through the callback is recorded before the chain stops; only the rules *after* it are
+  skipped.
+- **`RequiredIf` is unaffected.** It already stops the remaining rules on its own via
+  `ValidationResult.SkipRemainingRules`, regardless of `StopOnFirstFailure`.
+
 ##### Ranges and Comparisons for Any Ordered Type
 
 `IsInRange`, `IsGreaterThan` and `IsLessThan` work on any property type that implements `IComparable<T>`: `decimal`, `double`, `long`, `DateTime`, `DateOnly`, `string` and their nullable forms. Pass bounds of the property's own type; a bound of another type does not compile.
