@@ -5,7 +5,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<PackageId>FlowValidate</PackageId>
-		<Version>1.5.0</Version>
+		<Version>1.6.0</Version>
 		<Authors>Kadir Demirkaya</Authors>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageProjectUrl>https://github.com/kadirdemirkaya/FlowValidate</PackageProjectUrl>
@@ -14,9 +14,9 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageTags>validation, model, request, library</PackageTags>
 		<Description>A lightweight fluent validation library for request-based models, with conditional rule chains, async rule support, and nested/collection/registry composition.</Description>
-		<AssemblyInformationalVersion>1.5.0</AssemblyInformationalVersion>
+		<AssemblyInformationalVersion>1.6.0</AssemblyInformationalVersion>
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-		<PackageReleaseNotes>Added CancellationToken support to ValidateAsync, MustAsync and ShouldAsync, opt-in bounded MatchesRegex overloads with a RegexTimeout failure code, UseDescriptiveMessages()/WithDescriptiveMessages() for per-rule failure messages and error codes on the built-in rules, and WithSeverity(Severity) to override the last rule's failure severity.</PackageReleaseNotes>
+		<PackageReleaseNotes>Added WithPropertyPrefix(string) on ValidationNestedBuilder and ValidationRegistryRules for opt-in nested/registry failure prefixes, and StopOnFirstFailure()/UseStopOnFirstFailure() to opt a rule chain or validator out of running every rule after the first failure. Fixed IsDateInFuture/IsDateInPast/IsInFuture comparing a UTC DateTime against local time and added DateTimeOffset support. Fixed ValidateRegistryRules and ValidateCollection throwing ArgumentNullException for a null composed value or null element instead of skipping/reporting a failure.</PackageReleaseNotes>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<NoWarn>$(NoWarn);CS1591</NoWarn>
 		<IncludeSymbols>true</IncludeSymbols>
