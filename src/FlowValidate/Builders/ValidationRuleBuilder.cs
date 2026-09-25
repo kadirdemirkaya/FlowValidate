@@ -20,7 +20,9 @@ namespace FlowValidate.Builders
         private readonly List<(Delegate rule, ValidationFailure? validationFailure, bool isFromShould, (string? ErrorMessage, string? ErrorCode)? messageOverride, Severity? severityOverride, (string ErrorMessage, string ErrorCode)? builtInDescription)> _rulesWithMessages = new();
         private readonly List<Func<T, bool>> _chainConditions = new();
         private readonly Func<bool>? _validatorDescriptiveMessages;
+        private readonly Func<bool>? _validatorStopOnFirstFailure;
         private bool? _chainDescriptiveMessages;
+        private bool? _chainStopOnFirstFailure;
 
         public ValidationRuleBuilder(Expression<Func<T, TProperty>> property)
         {
@@ -35,10 +37,22 @@ namespace FlowValidate.Builders
             _validatorDescriptiveMessages = validatorDescriptiveMessages;
         }
 
+        internal ValidationRuleBuilder(
+            Expression<Func<T, TProperty>> property,
+            Func<bool>? validatorDescriptiveMessages,
+            Func<bool>? validatorStopOnFirstFailure)
+            : this(property, validatorDescriptiveMessages)
+        {
+            _validatorStopOnFirstFailure = validatorStopOnFirstFailure;
+        }
+
         internal string PropertyName => _propertyName;
 
         private bool DescriptiveMessagesEnabled =>
             _chainDescriptiveMessages ?? _validatorDescriptiveMessages?.Invoke() ?? false;
+
+        private bool StopOnFirstFailureEnabled =>
+            _chainStopOnFirstFailure ?? _validatorStopOnFirstFailure?.Invoke() ?? false;
 
         internal ValidationRuleBuilder<T, TProperty> AddBuiltInRule(Func<TProperty, bool> rule, string errorCode, Func<string, string> describe)
         {
@@ -203,6 +217,40 @@ namespace FlowValidate.Builders
             return this;
         }
 
+        /// <summary>
+        /// Opts this rule chain into stopping at the first failing rule: once a rule on this chain
+        /// fails, every rule registered after it is skipped — an async rule after the failure is not
+        /// even awaited.
+        /// </summary>
+        /// <param name="enabled">
+        /// <see langword="false"/> turns the behavior back off for this chain, overriding
+        /// <see cref="BaseValidator{T}.UseStopOnFirstFailure"/> on the validator that created it.
+        /// </param>
+        /// <returns>This builder, for chaining.</returns>
+        /// <remarks>
+        /// <para>
+        /// Opt-in and additive: without this call, and without
+        /// <see cref="BaseValidator{T}.UseStopOnFirstFailure"/> on the owning validator, every rule on
+        /// the chain still runs, exactly as before. The setting applies to the <b>whole chain</b> no
+        /// matter where it is written, just like <see cref="WithDescriptiveMessages"/>, and is read when
+        /// validation runs, so it also covers rules added before it.
+        /// </para>
+        /// <para>
+        /// A <c>Should</c>/<c>ShouldAsync</c> rule can report more than one failure from a single call;
+        /// when it fails, every failure it raised is still recorded before the chain stops.
+        /// </para>
+        /// <para>
+        /// <see cref="RequiredIf"/> already stops the remaining rules on its own via
+        /// <see cref="ValidationResult.SkipRemainingRules"/> and keeps doing so regardless of this
+        /// setting.
+        /// </para>
+        /// </remarks>
+        public ValidationRuleBuilder<T, TProperty> StopOnFirstFailure(bool enabled = true)
+        {
+            _chainStopOnFirstFailure = enabled;
+            return this;
+        }
+
 
         /// <summary>
         /// Runs every rule registered on this property, in registration order, stopping early if
@@ -239,12 +287,15 @@ namespace FlowValidate.Builders
             var value = _propertyFunc(instance);
 
             var describeBuiltInRules = DescriptiveMessagesEnabled;
+            var stopOnFirstFailure = StopOnFirstFailureEnabled;
 
             foreach (var (rule, validationFailure, isFromShould, messageOverride, severityOverride, builtInDescription) in _rulesWithMessages)
             {
                 if (result.SkipRemainingRules) break;
 
                 cancellationToken.ThrowIfCancellationRequested();
+
+                var failuresBeforeRule = result.Failures.Count;
 
                 bool passed = true;
 
@@ -301,6 +352,9 @@ namespace FlowValidate.Builders
 
                     result.SetIsValid(false);
                 }
+
+                if (stopOnFirstFailure && result.Failures.Count > failuresBeforeRule)
+                    break;
             }
 
             cancellationToken.ThrowIfCancellationRequested();

@@ -19,6 +19,7 @@ namespace FlowValidate
         protected readonly List<Func<bool>> _asyncCheckers = new();
 
         private bool _descriptiveMessages;
+        private bool _stopOnFirstFailure;
 
         private sealed class CancellableRule
         {
@@ -82,6 +83,33 @@ namespace FlowValidate
         }
 
         /// <summary>
+        /// Opts every <see cref="RuleFor{TProperty}"/> chain of this validator into stopping at the
+        /// first failing rule: once a rule on a chain fails, every rule registered after it on that
+        /// same chain is skipped — an async rule after the failure is not even awaited.
+        /// </summary>
+        /// <param name="enabled"><see langword="false"/> switches the behavior back off.</param>
+        /// <returns>This validator, for chaining.</returns>
+        /// <remarks>
+        /// <para>
+        /// Opt-in and additive: without this call every chain runs exactly as it did before, all the
+        /// way through. Call it anywhere in the derived validator's constructor — the setting is read
+        /// when validation runs, so chains registered before it are covered too.
+        /// </para>
+        /// <para>
+        /// A single chain can override this default in either direction with
+        /// <see cref="Builders.ValidationRuleBuilder{T, TProperty}.StopOnFirstFailure"/>. The setting
+        /// belongs to this validator alone and is not propagated to the validators passed to
+        /// <see cref="ValidateNested{TProperty}"/>, <see cref="ValidateCollection{TCollection, TElement}"/>
+        /// or <see cref="ValidateRegistryRules{TProperty}"/>.
+        /// </para>
+        /// </remarks>
+        public BaseValidator<T> UseStopOnFirstFailure(bool enabled = true)
+        {
+            _stopOnFirstFailure = enabled;
+            return this;
+        }
+
+        /// <summary>
         /// Starts a fluent rule chain for a single property of <typeparamref name="T"/>.
         /// </summary>
         /// <typeparam name="TProperty">The type of the property being validated.</typeparam>
@@ -89,7 +117,7 @@ namespace FlowValidate
         /// <returns>A builder used to attach rules to the selected property.</returns>
         public ValidationRuleBuilder<T, TProperty> RuleFor<TProperty>(Expression<Func<T, TProperty>> property)
         {
-            var builder = new ValidationRuleBuilder<T, TProperty>(property, () => _descriptiveMessages);
+            var builder = new ValidationRuleBuilder<T, TProperty>(property, () => _descriptiveMessages, () => _stopOnFirstFailure);
             AddRule(async (instance, cancellationToken) => await builder.ValidateAsync(instance, cancellationToken));
             _asyncCheckers.Add(() => builder.HasAsyncRules);
             return builder;
