@@ -25,7 +25,10 @@ namespace FlowValidate
         public static ValidationRuleBuilder<T, TProperty> IsInRange<T, TProperty>(this ValidationRuleBuilder<T, TProperty> builder, TProperty minValue, TProperty maxValue)
             where TProperty : IComparable<TProperty>?
         {
-            return builder.Must(value => value != null && value.CompareTo(minValue) >= 0 && value.CompareTo(maxValue) <= 0);
+            return builder.AddBuiltInRule(
+                value => value != null && value.CompareTo(minValue) >= 0 && value.CompareTo(maxValue) <= 0,
+                BuiltInRuleCodes.InRange,
+                name => $"{name} must be between {minValue} and {maxValue}.");
         }
 
         /// <summary>
@@ -39,7 +42,10 @@ namespace FlowValidate
         public static ValidationRuleBuilder<T, TProperty?> IsInRange<T, TProperty>(this ValidationRuleBuilder<T, TProperty?> builder, TProperty minValue, TProperty maxValue)
             where TProperty : struct, IComparable<TProperty>
         {
-            return builder.Must(value => value.HasValue && value.Value.CompareTo(minValue) >= 0 && value.Value.CompareTo(maxValue) <= 0);
+            return builder.AddBuiltInRule(
+                value => value.HasValue && value.Value.CompareTo(minValue) >= 0 && value.Value.CompareTo(maxValue) <= 0,
+                BuiltInRuleCodes.InRange,
+                name => $"{name} must be between {minValue} and {maxValue}.");
         }
 
         /// <summary>
@@ -52,7 +58,10 @@ namespace FlowValidate
         public static ValidationRuleBuilder<T, TProperty> IsGreaterThan<T, TProperty>(this ValidationRuleBuilder<T, TProperty> builder, TProperty minValue)
             where TProperty : IComparable<TProperty>?
         {
-            return builder.Must(value => value != null && value.CompareTo(minValue) > 0);
+            return builder.AddBuiltInRule(
+                value => value != null && value.CompareTo(minValue) > 0,
+                BuiltInRuleCodes.GreaterThan,
+                name => $"{name} must be greater than {minValue}.");
         }
 
         /// <summary>
@@ -65,7 +74,10 @@ namespace FlowValidate
         public static ValidationRuleBuilder<T, TProperty?> IsGreaterThan<T, TProperty>(this ValidationRuleBuilder<T, TProperty?> builder, TProperty minValue)
             where TProperty : struct, IComparable<TProperty>
         {
-            return builder.Must(value => value.HasValue && value.Value.CompareTo(minValue) > 0);
+            return builder.AddBuiltInRule(
+                value => value.HasValue && value.Value.CompareTo(minValue) > 0,
+                BuiltInRuleCodes.GreaterThan,
+                name => $"{name} must be greater than {minValue}.");
         }
 
         /// <summary>
@@ -78,7 +90,10 @@ namespace FlowValidate
         public static ValidationRuleBuilder<T, TProperty> IsLessThan<T, TProperty>(this ValidationRuleBuilder<T, TProperty> builder, TProperty maxValue)
             where TProperty : IComparable<TProperty>?
         {
-            return builder.Must(value => value != null && value.CompareTo(maxValue) < 0);
+            return builder.AddBuiltInRule(
+                value => value != null && value.CompareTo(maxValue) < 0,
+                BuiltInRuleCodes.LessThan,
+                name => $"{name} must be less than {maxValue}.");
         }
 
         /// <summary>
@@ -91,7 +106,10 @@ namespace FlowValidate
         public static ValidationRuleBuilder<T, TProperty?> IsLessThan<T, TProperty>(this ValidationRuleBuilder<T, TProperty?> builder, TProperty maxValue)
             where TProperty : struct, IComparable<TProperty>
         {
-            return builder.Must(value => value.HasValue && value.Value.CompareTo(maxValue) < 0);
+            return builder.AddBuiltInRule(
+                value => value.HasValue && value.Value.CompareTo(maxValue) < 0,
+                BuiltInRuleCodes.LessThan,
+                name => $"{name} must be less than {maxValue}.");
         }
     }
 }

@@ -17,14 +17,33 @@ namespace FlowValidate.Builders
         private readonly Expression<Func<T, TProperty>> _property;
         private readonly Func<T, TProperty> _propertyFunc;
         private readonly string _propertyName;
-        private readonly List<(Delegate rule, ValidationFailure? validationFailure, bool isFromShould, (string ErrorMessage, string? ErrorCode)? messageOverride, Severity? severityOverride)> _rulesWithMessages = new();
+        private readonly List<(Delegate rule, ValidationFailure? validationFailure, bool isFromShould, (string? ErrorMessage, string? ErrorCode)? messageOverride, Severity? severityOverride, (string ErrorMessage, string ErrorCode)? builtInDescription)> _rulesWithMessages = new();
         private readonly List<Func<T, bool>> _chainConditions = new();
+        private readonly Func<bool>? _validatorDescriptiveMessages;
+        private bool? _chainDescriptiveMessages;
 
         public ValidationRuleBuilder(Expression<Func<T, TProperty>> property)
         {
             _property = property;
             _propertyFunc = _property.Compile();
             _propertyName = GetPropertyName(property);
+        }
+
+        internal ValidationRuleBuilder(Expression<Func<T, TProperty>> property, Func<bool>? validatorDescriptiveMessages)
+            : this(property)
+        {
+            _validatorDescriptiveMessages = validatorDescriptiveMessages;
+        }
+
+        internal string PropertyName => _propertyName;
+
+        private bool DescriptiveMessagesEnabled =>
+            _chainDescriptiveMessages ?? _validatorDescriptiveMessages?.Invoke() ?? false;
+
+        internal ValidationRuleBuilder<T, TProperty> AddBuiltInRule(Func<TProperty, bool> rule, string errorCode, Func<string, string> describe)
+        {
+            _rulesWithMessages.Add((rule, null, false, null, null, (describe(_propertyName), errorCode)));
+            return this;
         }
 
         private static string GetPropertyName(Expression<Func<T, TProperty>> expression)
@@ -78,11 +97,8 @@ namespace FlowValidate.Builders
 
             if (lastRule.validationFailure == null)
             {
-                var defaultMessage = errorMessage ?? "Validation failed for property.";
-                var defaultCode = errorCode ?? "DefaultRule";
-
                 _rulesWithMessages[_rulesWithMessages.Count - 1] =
-                    (lastRule.rule, null, lastRule.isFromShould, (defaultMessage, defaultCode), lastRule.severityOverride);
+                    (lastRule.rule, null, lastRule.isFromShould, (errorMessage, errorCode), lastRule.severityOverride, lastRule.builtInDescription);
             }
             else
             {
@@ -97,7 +113,7 @@ namespace FlowValidate.Builders
                         attemptedValue: vf.AttemptedValue,
                         errorCode: updatedCode,
                         severity: vf.Severity
-                    ), lastRule.isFromShould, lastRule.messageOverride, lastRule.severityOverride);
+                    ), lastRule.isFromShould, lastRule.messageOverride, lastRule.severityOverride, lastRule.builtInDescription);
             }
 
             return this;
@@ -126,8 +142,39 @@ namespace FlowValidate.Builders
             var lastRule = _rulesWithMessages.Last();
 
             _rulesWithMessages[_rulesWithMessages.Count - 1] =
-                (lastRule.rule, lastRule.validationFailure, lastRule.isFromShould, lastRule.messageOverride, severity);
+                (lastRule.rule, lastRule.validationFailure, lastRule.isFromShould, lastRule.messageOverride, severity, lastRule.builtInDescription);
 
+            return this;
+        }
+
+        /// <summary>
+        /// Opts this rule chain into descriptive failures: every built-in rule on it reports a message
+        /// naming the property and the bound it enforces (e.g. <c>"Name must be between 3 and 100 characters."</c>)
+        /// and its own error code (e.g. <c>Length</c>) instead of the default
+        /// <c>"Validation failed for property."</c> with <c>DefaultRule</c>.
+        /// </summary>
+        /// <param name="enabled">
+        /// <see langword="false"/> turns descriptive failures back off for this chain, overriding
+        /// <see cref="BaseValidator{T}.UseDescriptiveMessages"/> on the validator that created it.
+        /// </param>
+        /// <returns>This builder, for chaining.</returns>
+        /// <remarks>
+        /// <para>
+        /// Opt-in: without this call, and without <see cref="BaseValidator{T}.UseDescriptiveMessages"/>
+        /// on the owning validator, messages and codes are exactly what they were before. The setting
+        /// applies to the whole chain no matter where it is written, and is read when validation runs,
+        /// so it also covers rules added before it.
+        /// </para>
+        /// <para>
+        /// <see cref="WithMessage"/> always wins: its message replaces the descriptive one, and its
+        /// error code replaces the rule's code when one is passed. Custom rules
+        /// (<c>Must</c>, <c>MustAsync</c>, <c>Should</c>, <c>ShouldAsync</c>) and <see cref="RequiredIf"/>
+        /// are unaffected — they keep the default message and code, and <c>Required</c>, respectively.
+        /// </para>
+        /// </remarks>
+        public ValidationRuleBuilder<T, TProperty> WithDescriptiveMessages(bool enabled = true)
+        {
+            _chainDescriptiveMessages = enabled;
             return this;
         }
 
@@ -166,7 +213,9 @@ namespace FlowValidate.Builders
 
             var value = _propertyFunc(instance);
 
-            foreach (var (rule, validationFailure, isFromShould, messageOverride, severityOverride) in _rulesWithMessages)
+            var describeBuiltInRules = DescriptiveMessagesEnabled;
+
+            foreach (var (rule, validationFailure, isFromShould, messageOverride, severityOverride, builtInDescription) in _rulesWithMessages)
             {
                 if (result.SkipRemainingRules) break;
 
@@ -203,11 +252,13 @@ namespace FlowValidate.Builders
                 {
                     if (!isFromShould)
                     {
+                        var description = describeBuiltInRules ? builtInDescription : null;
+
                         var baseFailure = validationFailure ?? new ValidationFailure(
                             propertyName: _propertyName,
-                            errorMessage: messageOverride?.ErrorMessage ?? "Validation failed for property.",
+                            errorMessage: messageOverride?.ErrorMessage ?? description?.ErrorMessage ?? "Validation failed for property.",
                             attemptedValue: value,
-                            errorCode: messageOverride?.ErrorCode ?? "DefaultRule"
+                            errorCode: messageOverride?.ErrorCode ?? description?.ErrorCode ?? "DefaultRule"
                         );
 
                         var failure = severityOverride.HasValue
@@ -334,6 +385,7 @@ namespace FlowValidate.Builders
                       ),
                   false,
                   null,
+                  null,
                   null
               ));
 
@@ -348,7 +400,7 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> Must(Func<TProperty, bool> rule)
         {
-            _rulesWithMessages.Add((rule, null, false, null, null));
+            _rulesWithMessages.Add((rule, null, false, null, null, null));
             return this;
         }
 
@@ -360,7 +412,7 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> MustAsync(Func<TProperty, Task<bool>> rule)
         {
-            _rulesWithMessages.Add((rule, null, false, null, null));
+            _rulesWithMessages.Add((rule, null, false, null, null, null));
             return this;
         }
 
@@ -380,7 +432,7 @@ namespace FlowValidate.Builders
         /// </remarks>
         public ValidationRuleBuilder<T, TProperty> MustAsync(Func<TProperty, CancellationToken, Task<bool>> rule)
         {
-            _rulesWithMessages.Add((rule, null, false, null, null));
+            _rulesWithMessages.Add((rule, null, false, null, null, null));
             return this;
         }
 
@@ -390,13 +442,15 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsNotEmpty()
         {
-            return Must(value =>
+            return AddBuiltInRule(value =>
             {
                 if (value is string str)
                     return !string.IsNullOrWhiteSpace(str);
 
                 return value != null;
-            });
+            },
+            BuiltInRuleCodes.NotEmpty,
+            name => $"{name} must not be empty.");
         }
 
         /// <summary>
@@ -406,7 +460,10 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsEqual(TProperty expectedValue)
         {
-            return Must(value => EqualityComparer<TProperty>.Default.Equals(value, expectedValue));
+            return AddBuiltInRule(
+                value => EqualityComparer<TProperty>.Default.Equals(value, expectedValue),
+                BuiltInRuleCodes.Equal,
+                name => $"{name} must be equal to '{expectedValue}'.");
         }
 
         /// <summary>
@@ -416,7 +473,10 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> Contains(string substring)
         {
-            return Must(value => value != null && value.ToString() is string str && str.Contains(substring));
+            return AddBuiltInRule(
+                value => value != null && value.ToString() is string str && str.Contains(substring),
+                BuiltInRuleCodes.Contains,
+                name => $"{name} must contain '{substring}'.");
         }
 
         /// <summary>
@@ -429,14 +489,16 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsInRange(int minValue, int maxValue)
         {
-            return Must(value =>
+            return AddBuiltInRule(value =>
             {
                 if (value is int intValue)
                 {
                     return intValue >= minValue && intValue <= maxValue;
                 }
                 return false;
-            });
+            },
+            BuiltInRuleCodes.InRange,
+            name => $"{name} must be between {minValue} and {maxValue}.");
         }
 
         /// <summary>
@@ -445,14 +507,16 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsEmail()
         {
-            return Must(value =>
+            return AddBuiltInRule(value =>
             {
                 if (value is string email)
                 {
                     return Regex.IsMatch(email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$");
                 }
                 return false;
-            });
+            },
+            BuiltInRuleCodes.Email,
+            name => $"{name} must be a valid email address.");
         }
 
         /// <summary>
@@ -464,7 +528,10 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> Length(int minLength, int maxLength)
         {
-            return Must(value => value != null && value.ToString() is string str && str.Length >= minLength && str.Length <= maxLength);
+            return AddBuiltInRule(
+                value => value != null && value.ToString() is string str && str.Length >= minLength && str.Length <= maxLength,
+                BuiltInRuleCodes.Length,
+                name => $"{name} must be between {minLength} and {maxLength} characters.");
         }
 
         /// <summary>
@@ -475,7 +542,10 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsGreaterThan(int minValue)
         {
-            return Must(value => TryConvertToInt32(value, out var intValue) && intValue > minValue);
+            return AddBuiltInRule(
+                value => TryConvertToInt32(value, out var intValue) && intValue > minValue,
+                BuiltInRuleCodes.GreaterThan,
+                name => $"{name} must be greater than {minValue}.");
         }
 
         /// <summary>
@@ -491,14 +561,16 @@ namespace FlowValidate.Builders
         /// </remarks>
         public ValidationRuleBuilder<T, TProperty> MatchesRegex(string pattern)
         {
-            return Must(value =>
+            return AddBuiltInRule(value =>
             {
                 if (value is string stringValue)
                 {
                     return Regex.IsMatch(stringValue, pattern);
                 }
                 return false;
-            });
+            },
+            BuiltInRuleCodes.RegexMatch,
+            name => $"{name} must match the required pattern.");
         }
 
         /// <summary>
@@ -577,7 +649,8 @@ namespace FlowValidate.Builders
                 null,
                 false,
                 null,
-                null
+                null,
+                ($"{_propertyName} must match the required pattern.", BuiltInRuleCodes.RegexMatch)
             ));
 
             return this;
@@ -589,14 +662,16 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsDateInFuture()
         {
-            return Must(value =>
+            return AddBuiltInRule(value =>
             {
                 if (value is DateTime date)
                 {
                     return date > DateTime.Now;
                 }
                 return false;
-            });
+            },
+            BuiltInRuleCodes.DateInFuture,
+            name => $"{name} must be a date in the future.");
         }
 
         /// <summary>
@@ -606,7 +681,7 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsUnique()
         {
-            return Must(value =>
+            return AddBuiltInRule(value =>
             {
                 if (value is not string && value is System.Collections.IEnumerable collection)
                 {
@@ -614,7 +689,9 @@ namespace FlowValidate.Builders
                     return items.Distinct().Count() == items.Count;
                 }
                 return false;
-            });
+            },
+            BuiltInRuleCodes.Unique,
+            name => $"{name} must contain unique items.");
         }
 
         /// <summary>
@@ -625,7 +702,10 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsLessThan(int maxValue)
         {
-            return Must(value => TryConvertToInt32(value, out var intValue) && intValue < maxValue);
+            return AddBuiltInRule(
+                value => TryConvertToInt32(value, out var intValue) && intValue < maxValue,
+                BuiltInRuleCodes.LessThan,
+                name => $"{name} must be less than {maxValue}.");
         }
 
         /// <summary>
@@ -634,14 +714,16 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsDateInPast()
         {
-            return Must(value =>
+            return AddBuiltInRule(value =>
             {
                 if (value is DateTime date)
                 {
                     return date < DateTime.Now;
                 }
                 return false;
-            });
+            },
+            BuiltInRuleCodes.DateInPast,
+            name => $"{name} must be a date in the past.");
         }
 
         /// <summary>
@@ -651,14 +733,16 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsInFuture()
         {
-            return Must(value =>
+            return AddBuiltInRule(value =>
             {
                 if (value is DateTime date)
                 {
                     return date > DateTime.Now;
                 }
                 return false;
-            });
+            },
+            BuiltInRuleCodes.InFuture,
+            name => $"{name} must be a date in the future.");
         }
 
         /// <summary>
@@ -670,7 +754,7 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> NoConsecutiveRepeats(int maxRepeatLength = 3)
         {
-            return Must(value =>
+            return AddBuiltInRule(value =>
             {
                 if (value == null) return true;
 
@@ -693,7 +777,9 @@ namespace FlowValidate.Builders
                 }
 
                 return true;
-            });
+            },
+            BuiltInRuleCodes.NoConsecutiveRepeats,
+            name => $"{name} must not repeat the same character {maxRepeatLength} or more times in a row.");
         }
 
         /// <summary>
@@ -703,7 +789,7 @@ namespace FlowValidate.Builders
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsPalindrome()
         {
-            return Must(value =>
+            return AddBuiltInRule(value =>
             {
                 if (value == null)
                     return true;
@@ -719,7 +805,9 @@ namespace FlowValidate.Builders
                 }
 
                 return true;
-            });
+            },
+            BuiltInRuleCodes.Palindrome,
+            name => $"{name} must be a palindrome.");
         }
 
         /// <summary>
@@ -762,6 +850,7 @@ namespace FlowValidate.Builders
                 }),
                 null,
                 true,
+                null,
                 null,
                 null
             ));
@@ -809,6 +898,7 @@ namespace FlowValidate.Builders
                 }),
                 null,
                 true,
+                null,
                 null,
                 null
             ));
@@ -870,6 +960,7 @@ namespace FlowValidate.Builders
                 null,
                 true,
                 null,
+                null,
                 null
             ));
 
@@ -913,6 +1004,7 @@ namespace FlowValidate.Builders
                 null,
                 true,
                 null,
+                null,
                 null
             ));
 
@@ -950,6 +1042,7 @@ namespace FlowValidate.Builders
                 }),
                 null,
                 true,
+                null,
                 null,
                 null
             ));
@@ -1006,6 +1099,7 @@ namespace FlowValidate.Builders
                 null,
                 true,
                 null,
+                null,
                 null
             ));
 
@@ -1046,6 +1140,7 @@ namespace FlowValidate.Builders
                 }),
                 null,
                 true,
+                null,
                 null,
                 null
             ));

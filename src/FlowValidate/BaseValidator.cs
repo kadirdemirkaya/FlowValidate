@@ -18,6 +18,8 @@ namespace FlowValidate
         protected readonly List<Func<T, Task<ValidationResult>>> _rules = new();
         protected readonly List<Func<bool>> _asyncCheckers = new();
 
+        private bool _descriptiveMessages;
+
         private sealed class CancellableRule
         {
             private readonly Func<T, CancellationToken, Task<ValidationResult>> _rule;
@@ -45,6 +47,41 @@ namespace FlowValidate
         public bool HasAsyncRules => _asyncCheckers.Any(check => check());
 
         /// <summary>
+        /// Opts every <see cref="RuleFor{TProperty}"/> chain of this validator into descriptive
+        /// failures: a failing built-in rule reports a message naming the property and the bound it
+        /// enforces (e.g. <c>"Name must be between 3 and 100 characters."</c>) and its own error code
+        /// from <see cref="BuiltInRuleCodes"/> (e.g. <c>Length</c>), instead of the default
+        /// <c>"Validation failed for property."</c> with <c>DefaultRule</c>.
+        /// </summary>
+        /// <param name="enabled"><see langword="false"/> switches descriptive failures back off.</param>
+        /// <returns>This validator, for chaining.</returns>
+        /// <remarks>
+        /// <para>
+        /// Opt-in and additive: without this call every message and error code is exactly what it was
+        /// before. Call it anywhere in the derived validator's constructor — the setting is read when
+        /// validation runs, so the rules registered before it are covered too.
+        /// </para>
+        /// <para>
+        /// The setting belongs to this validator alone and is not propagated to the validators passed
+        /// to <see cref="ValidateNested{TProperty}"/>, <see cref="ValidateCollection{TCollection, TElement}"/>
+        /// or <see cref="ValidateRegistryRules{TProperty}"/>, since those are independent instances that
+        /// may be shared: call it on each validator whose messages should be descriptive. A single chain
+        /// can opt in or out on its own with
+        /// <see cref="Builders.ValidationRuleBuilder{T, TProperty}.WithDescriptiveMessages"/>.
+        /// </para>
+        /// <para>
+        /// <see cref="Builders.ValidationRuleBuilder{T, TProperty}.WithMessage"/> always wins, and custom
+        /// rules (<c>Must</c>, <c>MustAsync</c>, <c>Should</c>, <c>ShouldAsync</c>) and <c>RequiredIf</c>
+        /// are unaffected.
+        /// </para>
+        /// </remarks>
+        public BaseValidator<T> UseDescriptiveMessages(bool enabled = true)
+        {
+            _descriptiveMessages = enabled;
+            return this;
+        }
+
+        /// <summary>
         /// Starts a fluent rule chain for a single property of <typeparamref name="T"/>.
         /// </summary>
         /// <typeparam name="TProperty">The type of the property being validated.</typeparam>
@@ -52,7 +89,7 @@ namespace FlowValidate
         /// <returns>A builder used to attach rules to the selected property.</returns>
         public ValidationRuleBuilder<T, TProperty> RuleFor<TProperty>(Expression<Func<T, TProperty>> property)
         {
-            var builder = new ValidationRuleBuilder<T, TProperty>(property);
+            var builder = new ValidationRuleBuilder<T, TProperty>(property, () => _descriptiveMessages);
             AddRule(async (instance, cancellationToken) => await builder.ValidateAsync(instance, cancellationToken));
             _asyncCheckers.Add(() => builder.HasAsyncRules);
             return builder;
