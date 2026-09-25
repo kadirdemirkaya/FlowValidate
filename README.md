@@ -266,7 +266,20 @@ Use `When`/`Unless` when a rule set only applies in some cases and its absence i
 
 ##### `Severity`
 
-`ValidationFailure.Severity` is a `FlowValidate.Enums.Severity` value (`Info`, `Warning`, `Error`). Every failure produced by the built-in rules, `Should`/`ShouldAsync`, and `RequiredIf` defaults to `Severity.Error` — there is no fluent option on `RuleFor`/`WithMessage` to change it. To report a lower severity, construct the failure yourself, either with `ValidationResult.Failure(message, propertyName, attemptedValue, errorCode, severity)` or `new ValidationFailure(...)`, and merge it into the validator's result:
+`ValidationFailure.Severity` is a `FlowValidate.Enums.Severity` value (`Info`, `Warning`, `Error`). Every failure produced by the built-in rules and `RequiredIf` defaults to `Severity.Error`. Chain `WithSeverity(Severity)` after a rule to change it, exactly the way `WithMessage` targets the most recently added rule:
+
+```csharp
+RuleFor(x => x.BackupEmail)
+    .IsNotEmpty()
+    .WithMessage("Backup email is missing.", "BACKUP_EMAIL_MISSING")
+    .WithSeverity(Severity.Warning);
+```
+
+- `WithSeverity` has no effect when no rule has been added yet, and can be chained together with `WithMessage` in either order.
+- It has **no effect on failures raised from inside a `Should`/`ShouldAsync` callback** — those build their own `ValidationFailure` directly and keep `Severity.Error`, the same way `WithMessage` already leaves their messages untouched.
+- `ValidationResult.IsValid` semantics are unchanged: a `Warning` or `Info` failure still makes the result invalid, exactly like `Error` does today.
+
+To report a severity without a `RuleFor` rule at all, construct the failure yourself, either with `ValidationResult.Failure(message, propertyName, attemptedValue, errorCode, severity)` or `new ValidationFailure(...)`, and merge it into the validator's result:
 
 ```csharp
 var result = validator.Validate(user);

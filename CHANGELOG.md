@@ -12,6 +12,7 @@ determined with confidence are marked ❓ instead of being guessed.
 - `UseFlowValidation()` now passes `HttpContext.RequestAborted` to the validator, so validation stops when the client disconnects. The obsolete `FlowValidationApp()` middleware stays frozen and validates without a token.
 - Reflection note: `ValidateAsync` can no longer be resolved by name alone (`typeof(IBaseValidator<T>).GetMethod("ValidateAsync")` throws `AmbiguousMatchException`); both middlewares now select the overload by signature, and consumer code that reflects over the method must do the same.
 - `MatchesRegex(string pattern, TimeSpan matchTimeout)` and `MatchesRegex(Regex regex)`: opt-in bounded regular expression matching for values that come from untrusted input, so a catastrophically backtracking pattern cannot occupy the thread. A timed-out match is reported as a rule failure with the error code `RegexTimeout` instead of throwing `RegexMatchTimeoutException` out of validation. The existing `MatchesRegex(string)` overload keeps its behavior and still matches without a time limit.
+- `WithSeverity(Severity)` on the `RuleFor` chain: overrides the severity of the most recently added rule's failure, following the same "applies to the last rule, no-op before any rule" contract as `WithMessage`, and composable with it in either order. Has no effect on failures raised from inside a `Should`/`ShouldAsync` callback, matching `WithMessage`'s existing behavior there. The default `Severity.Error` and `ValidationResult.IsValid` semantics are unchanged.
 
 ## [1.4.0] — 2026-09-24
 
