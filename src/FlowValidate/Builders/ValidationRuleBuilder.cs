@@ -57,6 +57,31 @@ namespace FlowValidate.Builders
             return expression.Body.ToString();
         }
 
+        private static bool CompareAgainstNow(TProperty value, bool expectFuture)
+        {
+            if (value is DateTime dateTimeValue)
+            {
+                DateTime now = dateTimeValue.Kind == DateTimeKind.Utc ? DateTime.UtcNow : DateTime.Now;
+                return expectFuture ? dateTimeValue > now : dateTimeValue < now;
+            }
+
+            if (value is DateTimeOffset dateTimeOffsetValue)
+            {
+                DateTimeOffset now = DateTimeOffset.UtcNow;
+                return expectFuture ? dateTimeOffsetValue > now : dateTimeOffsetValue < now;
+            }
+
+#if NET6_0_OR_GREATER
+            if (value is DateOnly dateOnlyValue)
+            {
+                DateOnly today = DateOnly.FromDateTime(DateTime.Now);
+                return expectFuture ? dateOnlyValue > today : dateOnlyValue < today;
+            }
+#endif
+
+            return false;
+        }
+
         private static bool TryConvertToInt32(TProperty value, out int converted)
         {
             try
@@ -657,21 +682,21 @@ namespace FlowValidate.Builders
         }
 
         /// <summary>
-        /// Fails unless the value is a <see cref="DateTime"/> strictly later than <see cref="DateTime.Now"/>.
+        /// Fails unless the value is strictly later than the current moment. Supports
+        /// <see cref="DateTime"/> (compared against <see cref="DateTime.UtcNow"/> when
+        /// <see cref="DateTime.Kind"/> is <see cref="DateTimeKind.Utc"/>, otherwise against
+        /// <see cref="DateTime.Now"/>), <see cref="DateTimeOffset"/> (compared against
+        /// <see cref="DateTimeOffset.UtcNow"/>), and, on target frameworks that support it,
+        /// <see cref="DateOnly"/> (compared against today's local date). A <see langword="null"/>
+        /// value or any other type always fails.
         /// </summary>
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsDateInFuture()
         {
-            return AddBuiltInRule(value =>
-            {
-                if (value is DateTime date)
-                {
-                    return date > DateTime.Now;
-                }
-                return false;
-            },
-            BuiltInRuleCodes.DateInFuture,
-            name => $"{name} must be a date in the future.");
+            return AddBuiltInRule(
+                value => CompareAgainstNow(value, expectFuture: true),
+                BuiltInRuleCodes.DateInFuture,
+                name => $"{name} must be a date in the future.");
         }
 
         /// <summary>
@@ -709,40 +734,34 @@ namespace FlowValidate.Builders
         }
 
         /// <summary>
-        /// Fails unless the value is a <see cref="DateTime"/> strictly earlier than <see cref="DateTime.Now"/>.
+        /// Fails unless the value is strictly earlier than the current moment. Supports
+        /// <see cref="DateTime"/> (compared against <see cref="DateTime.UtcNow"/> when
+        /// <see cref="DateTime.Kind"/> is <see cref="DateTimeKind.Utc"/>, otherwise against
+        /// <see cref="DateTime.Now"/>), <see cref="DateTimeOffset"/> (compared against
+        /// <see cref="DateTimeOffset.UtcNow"/>), and, on target frameworks that support it,
+        /// <see cref="DateOnly"/> (compared against today's local date). A <see langword="null"/>
+        /// value or any other type always fails.
         /// </summary>
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsDateInPast()
         {
-            return AddBuiltInRule(value =>
-            {
-                if (value is DateTime date)
-                {
-                    return date < DateTime.Now;
-                }
-                return false;
-            },
-            BuiltInRuleCodes.DateInPast,
-            name => $"{name} must be a date in the past.");
+            return AddBuiltInRule(
+                value => CompareAgainstNow(value, expectFuture: false),
+                BuiltInRuleCodes.DateInPast,
+                name => $"{name} must be a date in the past.");
         }
 
         /// <summary>
-        /// Fails unless the value is a <see cref="DateTime"/> strictly later than <see cref="DateTime.Now"/>.
-        /// Equivalent to <see cref="IsDateInFuture"/>.
+        /// Fails unless the value is strictly later than the current moment.
+        /// Equivalent to <see cref="IsDateInFuture"/>; see it for the per-type comparison rules.
         /// </summary>
         /// <returns>This builder, for chaining.</returns>
         public ValidationRuleBuilder<T, TProperty> IsInFuture()
         {
-            return AddBuiltInRule(value =>
-            {
-                if (value is DateTime date)
-                {
-                    return date > DateTime.Now;
-                }
-                return false;
-            },
-            BuiltInRuleCodes.InFuture,
-            name => $"{name} must be a date in the future.");
+            return AddBuiltInRule(
+                value => CompareAgainstNow(value, expectFuture: true),
+                BuiltInRuleCodes.InFuture,
+                name => $"{name} must be a date in the future.");
         }
 
         /// <summary>

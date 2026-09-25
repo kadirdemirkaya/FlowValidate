@@ -506,6 +506,8 @@ Age must be between 18 and 65.               [InRange]
 
 A `MatchesRegex` match that exceeds its timeout keeps reporting `RegexTimeout` with its own message, descriptive failures on or off.
 
+`IsDateInFuture`, `IsDateInPast` and `IsInFuture` support `DateTime`, `DateTimeOffset` and `DateOnly` (and their nullable forms). A `DateTime` with `Kind == DateTimeKind.Utc` is compared against `DateTime.UtcNow`; `Local` or `Unspecified` is compared against `DateTime.Now`. `DateTimeOffset` is always compared against `DateTimeOffset.UtcNow`, and `DateOnly` against today's local date. A `null` value, or any other property type, always fails.
+
 ##### Ranges and Comparisons for Any Ordered Type
 
 `IsInRange`, `IsGreaterThan` and `IsLessThan` work on any property type that implements `IComparable<T>`: `decimal`, `double`, `long`, `DateTime`, `DateOnly`, `string` and their nullable forms. Pass bounds of the property's own type; a bound of another type does not compile.
