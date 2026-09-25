@@ -13,11 +13,22 @@ namespace FlowValidate.AspNetCore
         private readonly RequestDelegate _next;
         private readonly ActionBodyParameterCache _actionBodyParameters;
         private readonly IServiceProvider _serviceProvider;
+        private readonly FlowValidationOptions _options;
 
         public FlowValidationMiddleware(RequestDelegate next, Assembly assembly, IServiceProvider serviceProvider)
+            : this(next, assembly, serviceProvider, new FlowValidationOptions())
+        {
+        }
+
+        internal FlowValidationMiddleware(
+            RequestDelegate next,
+            Assembly assembly,
+            IServiceProvider serviceProvider,
+            FlowValidationOptions options)
         {
             _next = next;
             _serviceProvider = serviceProvider;
+            _options = options;
 
             var registry = serviceProvider.GetService<FlowValidationAssemblyRegistry>();
             var assemblies = registry is null
@@ -40,7 +51,7 @@ namespace FlowValidate.AspNetCore
                 var requestBody = await new StreamReader(context.Request.Body).ReadToEndAsync();
                 context.Request.Body.Position = 0;
 
-                if (!TryDeserializeModel(requestBody, modelType, out var model))
+                if (!TryDeserializeModel(context, requestBody, modelType, out var model))
                 {
                     await _next(context);
 
@@ -90,7 +101,8 @@ namespace FlowValidate.AspNetCore
             await _next(context);
         }
 
-        private static bool TryDeserializeModel(
+        private bool TryDeserializeModel(
+            HttpContext context,
             string requestBody,
             Type modelType,
             [NotNullWhen(true)] out object? model)
@@ -100,6 +112,11 @@ namespace FlowValidate.AspNetCore
             if (string.IsNullOrWhiteSpace(requestBody))
             {
                 return false;
+            }
+
+            if (_options.UseSystemTextJson)
+            {
+                return HostJsonBodyReader.TryDeserialize(context, requestBody, modelType, out model);
             }
 
             try

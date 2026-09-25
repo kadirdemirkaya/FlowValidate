@@ -95,7 +95,13 @@ When a controller action's model fails validation, `UseFlowValidation()` respond
 
 - **Requires routing to have run first.** The middleware reads `HttpContext.GetRouteData()` to find the matched controller and action, so `app.UseFlowValidation()` must be registered after `app.UseRouting()` (or after endpoint routing has otherwise populated route values). If route data has no `controller`/`action` — request didn't match any route, or the middleware runs before routing — the request passes through untouched and no validation happens.
 - **No registered validator, no error.** If no `IBaseValidator<T>` is registered in DI for the resolved body-parameter type, the middleware also passes the request through untouched; it does not throw or report a missing validator.
-- **Body deserialization uses `Newtonsoft.Json`**, independent of whatever JSON stack the host application uses for model binding (`System.Text.Json` by default in ASP.NET Core). A type that binds correctly through the host's own JSON settings can still be deserialized differently by the middleware if the two serializers disagree (e.g. custom converters, naming policies).
+- **Body deserialization uses `Newtonsoft.Json` by default**, independent of whatever JSON stack the host application uses for model binding (`System.Text.Json` by default in ASP.NET Core). A type that binds correctly through the host's own JSON settings can still be deserialized differently by the middleware if the two serializers disagree, so a model that relies on `[JsonPropertyName]`, a naming policy or a custom converter is validated against values model binding never produced. Opt in to the host's own `System.Text.Json` settings to close that gap:
+
+  ```csharp
+  app.UseFlowValidation(options => options.UseSystemTextJson = true);
+  ```
+
+  The body is then deserialized with the `JsonSerializerOptions` the host registered through `Microsoft.AspNetCore.Mvc.JsonOptions` (the ASP.NET Core web defaults when MVC is not registered), so the middleware validates exactly the model the action receives. The parameterless `app.UseFlowValidation()` keeps the `Newtonsoft.Json` behavior, and the `400 Bad Request` response body is identical either way.
 - **A body the middleware cannot turn into a model is not validated.** Malformed JSON, an empty or whitespace-only body, a literal `null` body, and a body whose values do not fit the model type all make the request pass through untouched, so model binding answers it the way the framework normally would — on an `[ApiController]` that is `400 Bad Request` with the framework's `application/problem+json` body, not FlowValidate's `Errors` body. The middleware never converts an unreadable body into a server error, and it never reports a validation failure for a model it never built.
 
 ##### Migrating from `FlowValidationApp()`
