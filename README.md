@@ -206,7 +206,10 @@ ErrorMessage : Element 2: Name is required.
 ##### `null` Handling
 
 - **A `null` collection selected by `ValidateCollection` is skipped**, the same way `ValidateNested` already skips a `null` nested object — neither reports a failure and neither throws.
+- **A `null` value selected by `ValidateRegistryRules` is skipped**, the same contract as `ValidateNested` — no failure, no throw.
+- **A `null` element inside a collection validated by `ValidateCollection` reports a single failure for that element instead of throwing** — message `"Element n: cannot be null."` (one-based, the same prefix every other element failure uses), `ErrorCode: BuiltInRuleCodes.NullElement`, and `PropertyName` set to `Items[i]` (zero-based) when `WithIndexedPropertyNames` is on, or `"<root>"` otherwise. Every other element in the collection is still validated normally.
 - **A `null` root instance passed to `Validate` or `ValidateAsync` throws `ArgumentNullException`.** Both methods behave the same way, since `Validate` calls `ValidateAsync` internally.
+- **If a nested or registry-validated property must not be `null` at all**, add that as its own rule: `RuleFor(x => x.Child).IsNotEmpty()` alongside `ValidateNested(x => x.Child, new ChildValidator())` — composition itself always treats `null` as "nothing to validate", never as a failure.
 
 ##### Conditional Rules with `RequiredIf`
 

@@ -67,6 +67,20 @@ namespace FlowValidate.Builders
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var element = _itemSelector(item);
+
+                if (element == null)
+                {
+                    result.AddFailure(new ValidationFailure(
+                        propertyName: BuildPropertyName(count - 1, RootPropertyName),
+                        errorMessage: $"Element {count}: cannot be null.",
+                        attemptedValue: null,
+                        errorCode: BuiltInRuleCodes.NullElement
+                    ));
+
+                    count++;
+                    continue;
+                }
+
                 var itemResult = await _elementValidator.ValidateAsync(element, cancellationToken);
 
                 if (!itemResult.IsValid)

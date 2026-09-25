@@ -19,6 +19,9 @@
             var result = new ValidationResult();
             var value = _property(instance);
 
+            if (value == null)
+                return result;
+
             var baseValidationResult = await _validator.ValidateAsync(value, cancellationToken);
 
             if (!baseValidationResult.IsValid) result.Merge(baseValidationResult);
