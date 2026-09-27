@@ -7,6 +7,10 @@ determined with confidence are marked ❓ instead of being guessed.
 
 ## [Unreleased]
 
+## [1.6.1] — 2026-09-27
+
+- Maintenance release with no API or behaviour changes; contents are identical to 1.6.0.
+
 ## [1.6.0] — 2026-09-26
 
 ### Added
@@ -101,7 +105,8 @@ determined with confidence are marked ❓ instead of being guessed.
 
 - Initial published version.
 
-[Unreleased]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.6.1...HEAD
+[1.6.1]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/kadirdemirkaya/FlowValidate/compare/v1.3.0...v1.4.0

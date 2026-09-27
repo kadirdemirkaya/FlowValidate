@@ -5,7 +5,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<PackageId>FlowValidate</PackageId>
-		<Version>1.6.0</Version>
+		<Version>1.6.1</Version>
 		<Authors>Kadir Demirkaya</Authors>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageProjectUrl>https://github.com/kadirdemirkaya/FlowValidate</PackageProjectUrl>
@@ -15,9 +15,10 @@
 		<PackageIcon>icon.png</PackageIcon>
 		<PackageTags>validation, model, request, library</PackageTags>
 		<Description>A lightweight fluent validation library for request-based models, with conditional rule chains, async rule support, and nested/collection/registry composition.</Description>
-		<AssemblyInformationalVersion>1.6.0</AssemblyInformationalVersion>
+		<AssemblyInformationalVersion>1.6.1</AssemblyInformationalVersion>
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-		<PackageReleaseNotes>Added WithPropertyPrefix(string) on ValidationNestedBuilder and ValidationRegistryRules for opt-in nested/registry failure prefixes, and StopOnFirstFailure()/UseStopOnFirstFailure() to opt a rule chain or validator out of running every rule after the first failure. Fixed IsDateInFuture/IsDateInPast/IsInFuture comparing a UTC DateTime against local time and added DateTimeOffset support. Fixed ValidateRegistryRules and ValidateCollection throwing ArgumentNullException for a null composed value or null element instead of skipping/reporting a failure.</PackageReleaseNotes>
+		<PackageReleaseNotes>1.6.1: Maintenance release with no API or behaviour changes; contents are identical to 1.6.0.
+1.6.0: Added WithPropertyPrefix(string) on ValidationNestedBuilder and ValidationRegistryRules for opt-in nested/registry failure prefixes, and StopOnFirstFailure()/UseStopOnFirstFailure() to opt a rule chain or validator out of running every rule after the first failure. Fixed IsDateInFuture/IsDateInPast/IsInFuture comparing a UTC DateTime against local time and added DateTimeOffset support. Fixed ValidateRegistryRules and ValidateCollection throwing ArgumentNullException for a null composed value or null element instead of skipping/reporting a failure.</PackageReleaseNotes>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<NoWarn>$(NoWarn);CS1591</NoWarn>
 		<IncludeSymbols>true</IncludeSymbols>
