@@ -400,3 +400,10 @@ FodyWeavers.xsd
 *.png
 !assets/icon.png
 /BlogWeb.Mvc/Data/Seeds/BlogDbSeedContext.cs
+
+# Local-only working files
+/CLAUDE.md
+/roadmap.md
+/improvements.md
+/.claude/
+/docs/
