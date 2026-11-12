@@ -8,10 +8,10 @@ namespace FlowValidate.Test.Models
 {
     public class User
     {
-        public string Name { get; set; }
+        public string Name { get; set; } = null!;
         public int Age { get; set; }
         public DateTime? PastTime { get; set; }
-        public string Email { get; set; }
+        public string Email { get; set; } = null!;
         public List<string> Tags { get; set; } = new List<string>();
         public string? Nickname { get; set; }
 

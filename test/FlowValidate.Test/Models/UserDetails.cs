@@ -2,7 +2,7 @@
 {
     public class UserDetails
     {
-        public string Address { get; set; }
-        public string Phone { get; set; }
+        public string Address { get; set; } = null!;
+        public string Phone { get; set; } = null!;
     }
 }

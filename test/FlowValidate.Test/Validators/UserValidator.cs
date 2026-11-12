@@ -20,7 +20,7 @@ namespace FlowValidate.Test.Validators
 
             // Collection validator
             ValidateCollection(
-                u => u.UserBaskets,          
+                u => u.UserBaskets!,          
                 new UserBasketsValidator(),  
                 item => item                 
             );

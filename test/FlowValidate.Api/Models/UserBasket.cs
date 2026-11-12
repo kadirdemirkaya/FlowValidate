@@ -2,7 +2,7 @@
 {
     public class UserBasket
     {
-        public string Name { get; set; }
+        public string Name { get; set; } = null!;
         public int Count { get; set; }
     }
 }
